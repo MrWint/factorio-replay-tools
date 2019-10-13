@@ -2,6 +2,7 @@ use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use crate::constants::*;
 use crate::replay::*;
 use num_traits::{FromPrimitive, ToPrimitive};
+
 #[allow(unused_imports)] use std::io::{Error, ErrorKind, Read, Result, Write};
 #[derive(Debug)]
 pub struct Slot { // ItemStackTargetSpecification
@@ -60,7 +61,7 @@ pub enum InputAction {
   SingleplayerInit,
   StackSplit { slot: Slot, },
   StackTransfer { slot: Slot, },
-  StartResearch { technology: u16 },
+  StartResearch { technology: Technology },
   StartWalking { dir: Direction },
   StopBuildingByMoving,
   StopMining,
@@ -188,7 +189,7 @@ impl InputAction {
       InputActionType::SingleplayerInit => Ok(Some(InputAction::SingleplayerInit)),
       InputActionType::StackSplit => {  Ok(Some(InputAction::StackSplit { slot: Slot::read(r)? })) },
       InputActionType::StackTransfer => {  Ok(Some(InputAction::StackTransfer { slot: Slot::read(r)? })) },
-      InputActionType::StartResearch => {  Ok(Some(InputAction::StartResearch { technology: r.read_u16::<LittleEndian>()?, })) },
+      InputActionType::StartResearch => {  Ok(Some(InputAction::StartResearch { technology: Technology::from_u16(r.read_u16::<LittleEndian>()?).unwrap(), })) },
       InputActionType::StartWalking => {  Ok(Some(InputAction::StartWalking { dir: Direction::from_u8(r.read_u8()?).unwrap() })) },
       InputActionType::StopBuildingByMoving => Ok(Some(InputAction::StopBuildingByMoving)),
       InputActionType::StopMining => Ok(Some(InputAction::StopMining)),
@@ -281,7 +282,7 @@ impl InputAction {
       InputAction::SingleplayerInit => Ok(()),
       InputAction::StackSplit { slot, } => slot.write(w),
       InputAction::StackTransfer { slot, } => slot.write(w),
-      &InputAction::StartResearch { technology, } => w.write_u16::<LittleEndian>(technology),
+      &InputAction::StartResearch { technology, } => w.write_u16::<LittleEndian>(technology.to_u16().unwrap()),
       InputAction::StartWalking { dir, } => w.write_u8(dir.to_u8().unwrap()),
       InputAction::StopBuildingByMoving => Ok(()),
       InputAction::StopMining => Ok(()),

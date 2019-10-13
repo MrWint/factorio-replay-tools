@@ -1,0 +1,1 @@
+RNG manipulation: level.dat at 0x399 stores RNG seed (3x4 bytes)
