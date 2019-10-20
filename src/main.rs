@@ -3,19 +3,20 @@ mod constants;
 mod replay;
 mod singleplayerrunner;
 
-use byteorder::{LittleEndian, ReadBytesExt};
 #[allow(unused_imports)] use crate::action::*;
 use crate::constants::*;
 use crate::replay::*;
 use crate::singleplayerrunner::*;
+use factorio_serialize::Reader;
 use heck::CamelCase;
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::{Cursor, Read, Write};
 use zip::write::FileOptions;
 
 fn main() {
   // load_and_save_test();
-  assemble_test_tas();
+  // assemble_test_tas();
+  assemble_automation_tas();
   // parse_items_game_data();
   // parse_recipes_game_data();
   // parse_technologies_game_data();
@@ -24,10 +25,10 @@ fn main() {
 #[allow(dead_code)]
 fn parse_items_game_data() {
   let item_data = load_file("data/items-0.17.64.dat");
-  let mut reader = ReplayReader::new(item_data);
-  while !reader.is_at_eof() {
+  let mut reader = Reader::new(Cursor::new(item_data));
+  while !reader.is_at_eof().unwrap() {
     let name = reader.read_string().unwrap().to_camel_case();
-    let id = reader.read_u16::<LittleEndian>().unwrap();
+    let id = reader.read_u16().unwrap();
     println!("  {} = {},", name, id)
   }
 }
@@ -35,10 +36,10 @@ fn parse_items_game_data() {
 #[allow(dead_code)]
 fn parse_recipes_game_data() {
   let recipe_data = load_file("data/recipes-0.17.64.dat");
-  let mut reader = ReplayReader::new(recipe_data);
-  while !reader.is_at_eof() {
+  let mut reader = Reader::new(Cursor::new(recipe_data));
+  while !reader.is_at_eof().unwrap() {
     let name = reader.read_string().unwrap().to_camel_case();
-    let id = reader.read_u16::<LittleEndian>().unwrap();
+    let id = reader.read_u16().unwrap();
     println!("  {} = {},", name, id)
   }
 }
@@ -46,16 +47,51 @@ fn parse_recipes_game_data() {
 #[allow(dead_code)]
 fn parse_technologies_game_data() {
   let technology_data = load_file("data/technologies-0.17.64.dat");
-  let mut reader = ReplayReader::new(technology_data);
-  while !reader.is_at_eof() {
+  let mut reader = Reader::new(Cursor::new(technology_data));
+  while !reader.is_at_eof().unwrap() {
     let name = reader.read_string().unwrap().to_camel_case();
-    let id = reader.read_u16::<LittleEndian>().unwrap();
+    let id = reader.read_u16().unwrap();
     println!("  {} = {},", name, id)
   }
 }
 
+
 #[allow(dead_code)]
 fn assemble_test_tas() {
+  let id1_pos = MapPosition::new(0x500, -0x400);
+  let if1_pos = MapPosition::new(0x500, -0x200-0x100);
+
+  // let iron_ore_pos = MapPosition::new(0x80, -0x280);
+  let dry_dree_pos = MapPosition::new(0x200, 0x0);
+  // let huge_rock_1_pos = MapPosition::new(0x100, 0x100);
+
+  let items = SinglePlayerRunner::new("TASBot")
+    // .craft(Recipe::IronGearWheel, 3)
+    .build(Item::BurnerMiningDrill, id1_pos, Direction::S)
+    // .build(Item::StoneFurnace, if1_pos, Direction::S)
+    .add_fuel(Item::Wood, 1, id1_pos)
+    .mine_for(60, dry_dree_pos) // Mine Dry Tree  // tick 60
+    .craft(Recipe::WoodenChest, 1)
+    // .add_fuel(Item::Wood, 1, if1_pos)
+    .wait_for(31) // 91
+    .build(Item::WoodenChest, if1_pos, Direction::S)
+    .wait_for(252) // 242
+    .take_contents(if1_pos)
+    // .mine_for(361, huge_rock_1_pos) // Mine Huge Rock -> 46 Stone, 24 Coal  // tick 421
+    // .craft(Recipe::StoneFurnace, 1)
+    // .add_fuel(Item::Coal, 3, id1_pos)
+    // // .add_fuel(Item::Coal, 2, if1_pos)
+    // .mine_for(18, iron_ore_pos) // Mine iron ore  // tick 438
+    // .take_contents(if1_pos)
+    // .mine_for(13, iron_ore_pos) // Mine iron ore  // tick 452
+    // .craft(Recipe::BurnerMiningDrill, 1)
+    .into_replay_items();
+  let bytes = write_replay(items);
+  assemble_save_file("data/test-0.17.69-level.dat", "replay-assemble-test", &bytes).unwrap();
+}
+
+#[allow(dead_code)]
+fn assemble_automation_tas() {
   let id1_pos = MapPosition::new(0x500, -0x400);
   let if1_pos = MapPosition::new(0x500, -0x200);
   let id2_pos = MapPosition::new(0x300, -0x600);
@@ -90,15 +126,15 @@ fn assemble_test_tas() {
 
   let items = SinglePlayerRunner::new("TASBot")
     .craft(Recipe::IronGearWheel, 3)
-    .build(Item::BurnerMiningDrill, id1_pos, CardinalDirection::S)
-    .build(Item::StoneFurnace, if1_pos, CardinalDirection::S)
-    .add_fuel(Item::Wood, 1, id1_pos)
+    .build(Item::BurnerMiningDrill, id1_pos, Direction::S)
+    .build(Item::StoneFurnace, if1_pos, Direction::S)
+    .add_item(Item::Wood, 1, id1_pos)
     .mine_for(60, dry_dree_pos) // Mine Dry Tree  // tick 60
-    .add_fuel(Item::Wood, 1, if1_pos)
+    .add_item(Item::Wood, 1, if1_pos)
     .mine_for(361, huge_rock_1_pos) // Mine Huge Rock -> 46 Stone, 24 Coal  // tick 421
     .craft(Recipe::StoneFurnace, 1)
-    .add_fuel(Item::Coal, 3, id1_pos)
-    .add_fuel(Item::Coal, 2, if1_pos)
+    .add_item(Item::Coal, 3, id1_pos)
+    .add_item(Item::Coal, 2, if1_pos)
     .mine_for(17, iron_ore_pos) // Mine iron ore  // tick 438
     .take_contents(if1_pos)
     .mine_for(14, iron_ore_pos) // Mine iron ore  // tick 452
@@ -106,32 +142,32 @@ fn assemble_test_tas() {
     .craft(Recipe::StoneFurnace, 5)
     .mine_for(90, iron_ore_pos) // Mine iron ore  // tick 542
     .mine_for(31, iron_ore_pos) // Mine iron ore  // tick 573
-    .build(Item::BurnerMiningDrill, id2_pos, CardinalDirection::S)
-    .add_fuel(Item::Coal, 3, id2_pos)
+    .build(Item::BurnerMiningDrill, id2_pos, Direction::S)
+    .add_item(Item::Coal, 3, id2_pos)
     .mine_for(31, iron_ore_pos) // Mine iron ore  // tick 604
-    .build(Item::StoneFurnace, if2_pos, CardinalDirection::S)
-    .add_fuel(Item::Coal, 2, if2_pos)
-    .add_input(Item::IronOre, 1, if2_pos)
+    .build(Item::StoneFurnace, if2_pos, Direction::S)
+    .add_item(Item::Coal, 2, if2_pos)
+    .add_item(Item::IronOre, 1, if2_pos)
     .mine_for(31, iron_ore_pos) // Mine iron ore  // tick 635
-    .build(Item::StoneFurnace, if3_pos, CardinalDirection::S)
-    .add_fuel(Item::Coal, 2, if3_pos)
+    .build(Item::StoneFurnace, if3_pos, Direction::S)
+    .add_item(Item::Coal, 2, if3_pos)
     .mine_for(28, iron_ore_pos) // Mine iron ore  // tick 663
-    .add_input(Item::IronOre, 1, if3_pos)
+    .add_item(Item::IronOre, 1, if3_pos)
     .mine_for(3, iron_ore_pos) // Mine iron ore  // tick 666
-    .build(Item::StoneFurnace, if4_pos, CardinalDirection::S)
-    .add_fuel(Item::Coal, 2, if4_pos)
+    .build(Item::StoneFurnace, if4_pos, Direction::S)
+    .add_item(Item::Coal, 2, if4_pos)
     .mine_for(31, iron_ore_pos) // Mine iron ore  // tick 697
-    .build(Item::StoneFurnace, if5_pos, CardinalDirection::S)
-    .add_fuel(Item::Coal, 2, if5_pos)
+    .build(Item::StoneFurnace, if5_pos, Direction::S)
+    .add_item(Item::Coal, 2, if5_pos)
     .mine_for(31, iron_ore_pos) // Mine iron ore  // tick 728
-    .build(Item::StoneFurnace, if6_pos, CardinalDirection::S)
-    .add_fuel(Item::Coal, 1, if6_pos)
+    .build(Item::StoneFurnace, if6_pos, Direction::S)
+    .add_item(Item::Coal, 1, if6_pos)
     .mine_for(56, iron_ore_pos) // Mine iron ore  // tick 784
-    .add_input(Item::IronOre, 1, if4_pos)
+    .add_item(Item::IronOre, 1, if4_pos)
     .mine_for(121, iron_ore_pos) // Mine iron ore  // tick 905
-    .add_input(Item::IronOre, 1, if3_pos)
+    .add_item(Item::IronOre, 1, if3_pos)
     .mine_for(121, iron_ore_pos) // Mine iron ore  // tick 1026
-    .add_input(Item::IronOre, 1, if4_pos)
+    .add_item(Item::IronOre, 1, if4_pos)
     .mine_for(69, iron_ore_pos) // Mine iron ore  // tick 1095
     .take_contents(if1_pos)
     .take_contents(if2_pos)
@@ -140,21 +176,21 @@ fn assemble_test_tas() {
     .craft(Recipe::StoneFurnace, 1)
     .craft(Recipe::IronGearWheel, 3)
     .mine_for(52, iron_ore_pos) // Mine iron ore  // tick 1147
-    .add_input(Item::IronOre, 1, if3_pos)
+    .add_item(Item::IronOre, 1, if3_pos)
     .mine_for(72, iron_ore_pos) // Mine iron ore  // tick 1219
     .take_contents(if3_pos)
     .take_contents(if1_pos)
     .take_contents(if4_pos)
     .craft(Recipe::BurnerMiningDrill, 1)
     .mine_for(49, iron_ore_pos) // Mine iron ore  // tick 1268
-    .add_input(Item::IronOre, 1, if4_pos)
+    .add_item(Item::IronOre, 1, if4_pos)
     .mine_for(72, iron_ore_pos) // Mine iron ore  // tick 1340
-    .build(Item::BurnerMiningDrill, id3_pos, CardinalDirection::S)
-    .add_fuel(Item::Coal, 3, id3_pos)
+    .build(Item::BurnerMiningDrill, id3_pos, Direction::S)
+    .add_item(Item::Coal, 3, id3_pos)
     .mine_for(49, iron_ore_pos) // Mine iron ore  // tick 1389
-    .add_input(Item::IronOre, 1, if3_pos)
+    .add_item(Item::IronOre, 1, if3_pos)
     .mine_for(121, iron_ore_pos) // Mine iron ore  // tick 1510
-    .add_input(Item::IronOre, 1, if4_pos)
+    .add_item(Item::IronOre, 1, if4_pos)
     .mine_for(95, iron_ore_pos) // Mine iron ore  // tick 1605
     .take_contents(if2_pos)
     .take_contents(if3_pos)
@@ -163,21 +199,21 @@ fn assemble_test_tas() {
     .craft(Recipe::StoneFurnace, 1)
     .craft(Recipe::IronGearWheel, 3)
     .mine_for(26, iron_ore_pos) // Mine iron ore  // tick 1631
-    .add_input(Item::IronOre, 1, if5_pos)
+    .add_item(Item::IronOre, 1, if5_pos)
     .mine_for(98, iron_ore_pos) // Mine iron ore  // tick 1729
     .take_contents(if1_pos)
     .take_contents(if4_pos)
     .take_contents(if2_pos)
     .craft(Recipe::BurnerMiningDrill, 1)
     .mine_for(23, iron_ore_pos) // Mine iron ore  // tick 1752
-    .add_input(Item::IronOre, 1, if4_pos)
+    .add_item(Item::IronOre, 1, if4_pos)
     .mine_for(98, iron_ore_pos) // Mine iron ore  // tick 1850
-    .build(Item::BurnerMiningDrill, id5_pos, CardinalDirection::S)
-    .add_fuel(Item::Coal, 2, id5_pos)
+    .build(Item::BurnerMiningDrill, id5_pos, Direction::S)
+    .add_item(Item::Coal, 2, id5_pos)
     .mine_for(23, iron_ore_pos) // Mine iron ore  // tick 1873
-    .add_input(Item::IronOre, 1, if5_pos)
+    .add_item(Item::IronOre, 1, if5_pos)
     .mine_for(121, iron_ore_pos) // Mine iron ore  // tick 1994
-    .add_input(Item::IronOre, 1, if4_pos)
+    .add_item(Item::IronOre, 1, if4_pos)
     .mine_for(69, iron_ore_pos) // Mine iron ore  // tick 2063
     .take_contents(if3_pos)
     .take_contents(if5_pos)
@@ -187,15 +223,15 @@ fn assemble_test_tas() {
     .craft(Recipe::StoneFurnace, 1)
     .craft(Recipe::IronGearWheel, 3)
     .mine_for(52, iron_ore_pos) // Mine iron ore  // tick 2115
-    .add_input(Item::IronOre, 1, if6_pos)
+    .add_item(Item::IronOre, 1, if6_pos)
     .mine_for(72, huge_rock_2_pos) // Mine Huge Rock  // tick 2187
     .take_contents(if5_pos)
     .take_contents(if1_pos)
     .take_contents(if4_pos)
     .craft(Recipe::BurnerMiningDrill, 1)
     .mine_for(121, huge_rock_2_pos) // Mine Huge Rock  // tick 2308
-    .build(Item::BurnerMiningDrill, id4_pos, CardinalDirection::S)
-    .add_fuel(Item::Coal, 2, id4_pos)
+    .build(Item::BurnerMiningDrill, id4_pos, Direction::S)
+    .add_item(Item::Coal, 2, id4_pos)
     .mine_for(102, huge_rock_2_pos) // Mine Huge Rock  // tick 2410
     .take_contents(if2_pos)
     .take_contents(if3_pos)
@@ -209,26 +245,26 @@ fn assemble_test_tas() {
     .mine_for(4, huge_rock_2_pos) // Mine Huge Rock 49 stone/42 coal  // tick 2476
     .craft(Recipe::StoneFurnace, 3)
     .mine_for(58, iron_ore_pos) // Mine iron ore  // tick 2534
-    .build(Item::StoneFurnace, cf1_pos, CardinalDirection::S)
-    .add_fuel(Item::Coal, 1, cf1_pos)
+    .build(Item::StoneFurnace, cf1_pos, Direction::S)
+    .add_item(Item::Coal, 1, cf1_pos)
     .mine_for(31, iron_ore_pos) // Mine iron ore  // tick 2565
-    .build(Item::StoneFurnace, cf2_pos, CardinalDirection::S)
-    .add_fuel(Item::Coal, 1, cf2_pos)
+    .build(Item::StoneFurnace, cf2_pos, Direction::S)
+    .add_item(Item::Coal, 1, cf2_pos)
     .mine_for(31, iron_ore_pos) // Mine iron ore  // tick 2596
     .take_contents(if3_pos)
     .take_contents(if5_pos)
     .take_contents(if1_pos)
     .craft(Recipe::BurnerMiningDrill, 1)
     .mine_for(1, iron_ore_pos) // Mine iron ore  // tick 2597
-    .add_input(Item::IronOre, 1, if6_pos)
+    .add_item(Item::IronOre, 1, if6_pos)
     .mine_for(120, iron_ore_pos) // Mine iron ore  // tick 2717
-    .build(Item::BurnerMiningDrill, id6_pos, CardinalDirection::S)
-    .add_fuel(Item::Coal, 2, id6_pos)
+    .build(Item::BurnerMiningDrill, id6_pos, Direction::S)
+    .add_item(Item::Coal, 2, id6_pos)
     .craft(Recipe::StoneFurnace, 4)
     .mine_for(1, iron_ore_pos) // Mine iron ore  // tick 2718
-    .add_input(Item::IronOre, 1, cf1_pos)
+    .add_item(Item::IronOre, 1, cf1_pos)
     .mine_for(121, iron_ore_pos) // Mine iron ore  // tick 2839
-    .add_input(Item::IronOre, 1, cf2_pos)
+    .add_item(Item::IronOre, 1, cf2_pos)
     .mine_for(13, iron_ore_pos) // Mine iron ore  // tick 2852
     .take_contents(if2_pos)
     .take_contents(if3_pos)
@@ -239,17 +275,17 @@ fn assemble_test_tas() {
     .craft(Recipe::StoneFurnace, 1)
     .craft(Recipe::IronGearWheel, 3)
     .mine_for(108, iron_ore_pos) // Mine iron ore  // tick 2960
-    .add_input(Item::IronOre, 1, cf1_pos)
+    .add_item(Item::IronOre, 1, cf1_pos)
     .mine_for(16, copper_ore_pos) // Mine iron ore  // tick 2976
     .take_contents(cf1_pos)
     .take_contents(if2_pos)
     .take_contents(if3_pos)
     .craft(Recipe::BurnerMiningDrill, 1)
     .mine_for(105, copper_ore_pos) // Mine iron ore  // tick 3081
-    .add_input(Item::CopperOre, 1, cf2_pos)
+    .add_item(Item::CopperOre, 1, cf2_pos)
     .mine_for(16, iron_ore_pos) // Mine iron ore  // tick 3097
-    .build(Item::BurnerMiningDrill, cd2_pos, CardinalDirection::S)
-    .add_fuel(Item::Coal, 2, cd2_pos)
+    .build(Item::BurnerMiningDrill, cd2_pos, Direction::S)
+    .add_item(Item::Coal, 2, cd2_pos)
     .mine_for(3, iron_ore_pos) // Mine iron ore  // tick 3100
     .craft(Recipe::StoneFurnace, 1)
     .mine_for(31, iron_ore_pos) // Mine iron ore  // tick 3131
@@ -264,16 +300,16 @@ fn assemble_test_tas() {
     .take_contents(if2_pos)
     .craft(Recipe::IronGearWheel, 1)
     .mine_for(9, iron_ore_pos) // Mine iron ore  // tick 3202
-    .add_input(Item::IronOre, 1, cf1_pos)
+    .add_item(Item::IronOre, 1, cf1_pos)
     .mine_for(22, iron_ore_pos) // Mine iron ore  // tick 3224
     .take_contents(if3_pos)
     .take_contents(if4_pos)
     .craft(Recipe::BurnerMiningDrill, 1)
     .mine_for(99, iron_ore_pos) // Mine iron ore  // tick 3323
-    .add_input(Item::IronOre, 1, cf1_pos)
+    .add_item(Item::IronOre, 1, cf1_pos)
     .mine_for(22, huge_rock_3_pos)  // tick 3345
-    .build(Item::BurnerMiningDrill, cd1_pos, CardinalDirection::S)
-    .add_fuel(Item::Coal, 2, cd1_pos)
+    .build(Item::BurnerMiningDrill, cd1_pos, Direction::S)
+    .add_item(Item::Coal, 2, cd1_pos)
     .take_contents(if5_pos)
     .take_contents(cf2_pos)
     .take_contents(if1_pos)
@@ -304,25 +340,25 @@ fn assemble_test_tas() {
     .take_contents(if1_pos)
     .take_contents(cf2_pos)
     .take_contents(cf1_pos)
-    .add_fuel(Item::Coal, 4, cd1_pos)
-    .add_fuel(Item::Coal, 4, cd2_pos)
-    .add_fuel(Item::Coal, 4, id1_pos)
-    .add_fuel(Item::Coal, 4, id2_pos)
-    .add_fuel(Item::Coal, 4, id3_pos)
-    .add_fuel(Item::Coal, 4, id4_pos)
-    .add_fuel(Item::Coal, 4, id5_pos)
-    .add_fuel(Item::Coal, 4, id6_pos)
-    .add_fuel(Item::Coal, 2, cf1_pos)
-    .add_fuel(Item::Coal, 2, cf2_pos)
-    .add_fuel(Item::Coal, 2, if1_pos)
-    .add_fuel(Item::Coal, 2, if2_pos)
-    .add_fuel(Item::Coal, 2, if3_pos)
-    .add_fuel(Item::Coal, 2, if4_pos)
-    .add_fuel(Item::Coal, 2, if5_pos)
-    .add_fuel(Item::Coal, 2, if6_pos)
+    .add_item(Item::Coal, 4, cd1_pos)
+    .add_item(Item::Coal, 4, cd2_pos)
+    .add_item(Item::Coal, 4, id1_pos)
+    .add_item(Item::Coal, 4, id2_pos)
+    .add_item(Item::Coal, 4, id3_pos)
+    .add_item(Item::Coal, 4, id4_pos)
+    .add_item(Item::Coal, 4, id5_pos)
+    .add_item(Item::Coal, 4, id6_pos)
+    .add_item(Item::Coal, 2, cf1_pos)
+    .add_item(Item::Coal, 2, cf2_pos)
+    .add_item(Item::Coal, 2, if1_pos)
+    .add_item(Item::Coal, 2, if2_pos)
+    .add_item(Item::Coal, 2, if3_pos)
+    .add_item(Item::Coal, 2, if4_pos)
+    .add_item(Item::Coal, 2, if5_pos)
+    .add_item(Item::Coal, 2, if6_pos)
     .craft(Recipe::OffshorePump, 1)
     .wait_for(248)  // tick 4921
-    .build(Item::OffshorePump, offshore_pump_pos, CardinalDirection::N)
+    .build(Item::OffshorePump, offshore_pump_pos, Direction::N)
     .craft(Recipe::Boiler, 1)
     .wait_for(155)  // tick 5076
     .take_contents(if6_pos)
@@ -333,8 +369,8 @@ fn assemble_test_tas() {
     .take_contents(if1_pos)
     .take_contents(cf2_pos)
     .take_contents(cf1_pos)
-    .build(Item::Boiler, boiler_pos, CardinalDirection::E)
-    .add_fuel(Item::Coal, 6, boiler_pos)
+    .build(Item::Boiler, boiler_pos, Direction::E)
+    .add_item(Item::Coal, 6, boiler_pos)
     .craft(Recipe::Pipe, 5)
     .wait_for(155)  // tick 5231
     .take_contents(if6_pos)
@@ -347,7 +383,7 @@ fn assemble_test_tas() {
     .take_contents(cf1_pos)
     .craft(Recipe::SteamEngine, 1)
     .wait_for(279)  // tick 5510
-    .build(Item::SteamEngine, steam_engine_pos, CardinalDirection::E)
+    .build(Item::SteamEngine, steam_engine_pos, Direction::E)
     .craft(Recipe::SmallElectricPole, 1)
     .wait_for(62)  // tick 5572
     .take_contents(if6_pos)
@@ -358,7 +394,7 @@ fn assemble_test_tas() {
     .take_contents(if1_pos)
     .take_contents(cf2_pos)
     .take_contents(cf1_pos)
-    .build(Item::SmallElectricPole, electric_pole_pos, CardinalDirection::N)
+    .build(Item::SmallElectricPole, electric_pole_pos, Direction::N)
     .craft(Recipe::TransportBelt, 2)
     .craft(Recipe::ElectronicCircuit, 6)
     .wait_for(589)  // tick 6161
@@ -403,8 +439,8 @@ fn assemble_test_tas() {
     .take_contents(if1_pos)
     .take_contents(cf2_pos)
     .take_contents(cf1_pos)
-    .build(Item::Lab, lab_1_pos, CardinalDirection::N)
-    .add_input(Item::AutomationSciencePack, 3, lab_1_pos)
+    .build(Item::Lab, lab_1_pos, Direction::N)
+    .add_item(Item::AutomationSciencePack, 3, lab_1_pos)
     .craft(Recipe::ElectronicCircuit, 4)
     .craft(Recipe::TransportBelt, 1)
     .craft(Recipe::IronGearWheel, 1)
@@ -462,8 +498,8 @@ fn assemble_test_tas() {
     .take_contents(cf1_pos)
     .craft(Recipe::Lab, 1)
     .wait_for(152)  // tick 8232
-    .build(Item::Lab, lab_2_pos, CardinalDirection::N)
-    .add_input(Item::AutomationSciencePack, 1, lab_2_pos)
+    .build(Item::Lab, lab_2_pos, Direction::N)
+    .add_item(Item::AutomationSciencePack, 1, lab_2_pos)
     .take_contents(if6_pos)
     .take_contents(if2_pos)
     .take_contents(if3_pos)
@@ -474,10 +510,10 @@ fn assemble_test_tas() {
     .take_contents(cf1_pos)
     .craft(Recipe::AutomationSciencePack, 1)
     .wait_for(332)  // tick 8564
-    .add_input(Item::AutomationSciencePack, 1, lab_1_pos)
+    .add_item(Item::AutomationSciencePack, 1, lab_1_pos)
     .craft(Recipe::AutomationSciencePack, 1)
     .wait_for(332)  // tick 8896
-    .add_input(Item::AutomationSciencePack, 1, lab_2_pos)
+    .add_item(Item::AutomationSciencePack, 1, lab_2_pos)
     .take_contents(if6_pos)
     .take_contents(if2_pos)
     .take_contents(if3_pos)
@@ -488,19 +524,19 @@ fn assemble_test_tas() {
     .take_contents(cf1_pos)
     .craft(Recipe::AutomationSciencePack, 1)
     .wait_for(332)  // tick 9228
-    .add_input(Item::AutomationSciencePack, 1, lab_1_pos)
+    .add_item(Item::AutomationSciencePack, 1, lab_1_pos)
     .craft(Recipe::AutomationSciencePack, 1)
     .wait_for(332)  // tick 9560
-    .add_input(Item::AutomationSciencePack, 1, lab_2_pos)
+    .add_item(Item::AutomationSciencePack, 1, lab_2_pos)
     .craft(Recipe::AutomationSciencePack, 1)
     .wait_for(332)  // tick 9892
-    .add_input(Item::AutomationSciencePack, 1, lab_1_pos)
+    .add_item(Item::AutomationSciencePack, 1, lab_1_pos)
     .craft(Recipe::AutomationSciencePack, 1)
     .wait_for(332)  // tick 10224
-    .add_input(Item::AutomationSciencePack, 1, lab_2_pos)
+    .add_item(Item::AutomationSciencePack, 1, lab_2_pos)
     .craft(Recipe::AutomationSciencePack, 1)
     .wait_for(332)  // tick 10556
-    .add_input(Item::AutomationSciencePack, 1, lab_1_pos)
+    .add_item(Item::AutomationSciencePack, 1, lab_1_pos)
 
     .take_contents(if6_pos)
     .take_contents(if2_pos)
@@ -512,7 +548,7 @@ fn assemble_test_tas() {
     .take_contents(cf1_pos)
     .into_replay_items();
   let bytes = write_replay(items);
-  assemble_save_file("data/test4-level.dat", "replay-assemble-test", &bytes).unwrap();
+  assemble_save_file("data/test-0.17.69-level.dat", "replay-assemble-automation", &bytes).unwrap();
 }
 
 #[allow(dead_code)]
@@ -527,7 +563,7 @@ fn load_and_save_test() {
 fn assemble_save_file(level_file_name: &str, save_name: &str, replay_bytes: &[u8]) -> zip::result::ZipResult<()> {
   let info_data = load_file("data/info.json");
   let control_data = load_file("data/control.lua");
-  let freeplay_data = load_file("data/freeplay.lua");
+  // let freeplay_data = load_file("data/freeplay.lua");
   let level_data = load_file(level_file_name);
 
   let save_file_name = format!("{}/Factorio/saves/{}.zip", std::env::var("APPDATA").unwrap(), save_name);
@@ -539,8 +575,8 @@ fn assemble_save_file(level_file_name: &str, save_name: &str, replay_bytes: &[u8
   new_zip.write_all(&info_data)?;
   new_zip.start_file(format!("{}/control.lua", save_name), FileOptions::default())?;
   new_zip.write_all(&control_data)?;
-  new_zip.start_file(format!("{}/freeplay.lua", save_name), FileOptions::default())?;
-  new_zip.write_all(&freeplay_data)?;
+  // new_zip.start_file(format!("{}/freeplay.lua", save_name), FileOptions::default())?;
+  // new_zip.write_all(&freeplay_data)?;
   new_zip.start_file(format!("{}/level.dat", save_name), FileOptions::default())?;
   new_zip.write_all(&level_data)?;
   new_zip.start_file(format!("{}/level-init.dat", save_name), FileOptions::default())?;

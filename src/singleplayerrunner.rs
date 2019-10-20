@@ -2,17 +2,6 @@ use crate::action::*;
 use crate::constants::*;
 use crate::replay::*;
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct MapPosition {
-  x: i32,
-  y: i32,
-}
-impl MapPosition {
-  pub fn new(x: i32, y: i32) -> Self {
-    Self { x, y }
-  }
-}
-
 const PID: u16 = 0;
 
 pub struct SinglePlayerRunner {
@@ -29,55 +18,68 @@ impl SinglePlayerRunner {
     ], tick: 0, }
   }
 
-  pub fn build(mut self, item: Item, pos: MapPosition, dir: CardinalDirection) -> Self {
-    self.items.push(ReplayItem::new(self.tick, PID, InputAction::SetFilter { slot: Slot { typ: SlotType::Quickbar, slot: 0, }, item, })); // Configure quickbar slot
+  pub fn build(mut self, item: Item, pos: MapPosition, dir: Direction) -> Self {
+    self.items.push(ReplayItem::new(self.tick, PID, InputAction::SetFilter { slot: Slot::from_quick_bar(0, 0), item, })); // Configure quickbar slot
     self.items.push(ReplayItem::new(self.tick, PID, InputAction::QuickBarPickSlot { slot: 0, })); // Select quickbar into cursor
-    self.items.push(ReplayItem::new(self.tick, PID, InputAction::BuildItem { x: pos.x, y: pos.y, dir, ghost: false, })); // Build item from cursor
+    self.items.push(ReplayItem::new(self.tick, PID, InputAction::BuildItem { pos, dir, created_by_moving: true, size: 1, ghost_mode: false, skip_fog_of_war: false, })); // Build item from cursor
     self.items.push(ReplayItem::new(self.tick, PID, InputAction::CleanCursorStack)); // Clear cursor
-    self.items.push(ReplayItem::new(self.tick, PID, InputAction::QuickBarSetSlot { slot: 0, source_slot: Slot { typ: SlotType::Nothing, slot: 0xffff, }})); // Clear quickbar slot
+    self.items.push(ReplayItem::new(self.tick, PID, InputAction::QuickBarSetSlot { slot: 0, source_slot: Slot::from_nothing() })); // Clear quickbar slot
+    self
+  }
+
+  pub fn add_item(mut self, item: Item, amount: usize, pos: MapPosition) -> Self {
+    self.items.push(ReplayItem::new(self.tick, PID, InputAction::SetFilter { slot: Slot::from_quick_bar(0, 0), item, })); // Configure quickbar slot
+    self.items.push(ReplayItem::new(self.tick, PID, InputAction::QuickBarPickSlot { slot: 0, })); // Select quickbar into cursor
+    self.items.push(ReplayItem::new(self.tick, PID, InputAction::SelectedEntityChanged { pos, })); // Select entity
+    for _ in 0..amount {
+      self.items.push(ReplayItem::new(self.tick, PID, InputAction::DropItem { pos, }));
+    }
+    self.items.push(ReplayItem::new(self.tick, PID, InputAction::SelectedEntityCleared)); // Clear selection
+    self.items.push(ReplayItem::new(self.tick, PID, InputAction::CleanCursorStack)); // Clear cursor
+    self.items.push(ReplayItem::new(self.tick, PID, InputAction::QuickBarSetSlot { slot: 0, source_slot: Slot::from_nothing() })); // Clear quickbar slot
     self
   }
 
   pub fn add_fuel(mut self, item: Item, amount: usize, pos: MapPosition) -> Self {
-    self.items.push(ReplayItem::new(self.tick, PID, InputAction::SetFilter { slot: Slot { typ: SlotType::Quickbar, slot: 0, }, item, })); // Configure quickbar slot
+    self.items.push(ReplayItem::new(self.tick, PID, InputAction::SetFilter { slot: Slot::from_quick_bar(0, 0), item, })); // Configure quickbar slot
     self.items.push(ReplayItem::new(self.tick, PID, InputAction::QuickBarPickSlot { slot: 0, })); // Select quickbar into cursor
-    self.items.push(ReplayItem::new(self.tick, PID, InputAction::SelectedEntityChanged { x: pos.x, y: pos.y, })); // Select entity
+    self.items.push(ReplayItem::new(self.tick, PID, InputAction::SelectedEntityChanged { pos, })); // Select entity
     self.items.push(ReplayItem::new(self.tick, PID, InputAction::OpenGui)); // Open GUI
     for _ in 0..amount {
-      self.items.push(ReplayItem::new(self.tick, PID, InputAction::CursorSplit { slot: Slot { typ: SlotType::ContainerOrMachineFuel, slot: 0, }, }));
+      self.items.push(ReplayItem::new(self.tick, PID, InputAction::CursorSplit { slot: Slot::from_fuel(0), }));
     }
     self.items.push(ReplayItem::new(self.tick, PID, InputAction::CloseGui)); // Close GUI
     self.items.push(ReplayItem::new(self.tick, PID, InputAction::SelectedEntityCleared)); // Clear selection
     self.items.push(ReplayItem::new(self.tick, PID, InputAction::CleanCursorStack)); // Clear cursor
-    self.items.push(ReplayItem::new(self.tick, PID, InputAction::QuickBarSetSlot { slot: 0, source_slot: Slot { typ: SlotType::Nothing, slot: 0xffff, }})); // Clear quickbar slot
+    self.items.push(ReplayItem::new(self.tick, PID, InputAction::QuickBarSetSlot { slot: 0, source_slot: Slot::from_nothing() })); // Clear quickbar slot
     self
   }
 
   #[allow(dead_code)]
   pub fn add_input(mut self, item: Item, amount: usize, pos: MapPosition) -> Self {
-    self.items.push(ReplayItem::new(self.tick, PID, InputAction::SetFilter { slot: Slot { typ: SlotType::Quickbar, slot: 0, }, item, })); // Configure quickbar slot
+    self.items.push(ReplayItem::new(self.tick, PID, InputAction::SetFilter { slot: Slot::from_quick_bar(0, 0), item, })); // Configure quickbar slot
     self.items.push(ReplayItem::new(self.tick, PID, InputAction::QuickBarPickSlot { slot: 0, })); // Select quickbar into cursor
-    self.items.push(ReplayItem::new(self.tick, PID, InputAction::SelectedEntityChanged { x: pos.x, y: pos.y, })); // Select entity
+    self.items.push(ReplayItem::new(self.tick, PID, InputAction::SelectedEntityChanged { pos, })); // Select entity
     self.items.push(ReplayItem::new(self.tick, PID, InputAction::OpenGui)); // Open GUI
     for _ in 0..amount {
-      self.items.push(ReplayItem::new(self.tick, PID, InputAction::CursorSplit { slot: Slot { typ: SlotType::MachineInput, slot: 0, }, }));
+      self.items.push(ReplayItem::new(self.tick, PID, InputAction::CursorSplit { slot: Slot::from_machine_input(0), }));
     }
     self.items.push(ReplayItem::new(self.tick, PID, InputAction::CloseGui)); // Close GUI
     self.items.push(ReplayItem::new(self.tick, PID, InputAction::SelectedEntityCleared)); // Clear selection
     self.items.push(ReplayItem::new(self.tick, PID, InputAction::CleanCursorStack)); // Clear cursor
-    self.items.push(ReplayItem::new(self.tick, PID, InputAction::QuickBarSetSlot { slot: 0, source_slot: Slot { typ: SlotType::Nothing, slot: 0xffff, }})); // Clear quickbar slot
+    self.items.push(ReplayItem::new(self.tick, PID, InputAction::QuickBarSetSlot { slot: 0, source_slot: Slot::from_nothing() })); // Clear quickbar slot
     self
   }
 
   pub fn take_contents(mut self, pos: MapPosition) -> Self {
-    self.items.push(ReplayItem::new(self.tick, PID, InputAction::SelectedEntityChanged { x: pos.x, y: pos.y, })); // Select entity
+    self.items.push(ReplayItem::new(self.tick, PID, InputAction::SelectedEntityChanged { pos, })); // Select entity
     self.items.push(ReplayItem::new(self.tick, PID, InputAction::FastEntityTransfer { dir: TransferDirection::Out, })); // Take items
     self.items.push(ReplayItem::new(self.tick, PID, InputAction::SelectedEntityCleared)); // Clear selection
     self
   }
 
   pub fn mine_for(mut self, ticks: u32, pos: MapPosition) -> Self {
-    self.items.push(ReplayItem::new(self.tick, PID, InputAction::SelectedEntityChanged { x: pos.x, y: pos.y, })); // Select entity
+    self.items.push(ReplayItem::new(self.tick, PID, InputAction::SelectedEntityChanged { pos, })); // Select entity
     self.items.push(ReplayItem::new(self.tick, PID, InputAction::BeginMining)); // begin mining
     self.tick += ticks;
     self.items.push(ReplayItem::new(self.tick, PID, InputAction::StopMining)); // stop mining

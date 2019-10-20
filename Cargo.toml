@@ -10,3 +10,4 @@ enum-primitive-derive = "*"
 num-traits = "*"
 zip = "*"
 heck = "*"
+factorio-serialize = { path = "factorio-serialize" }
