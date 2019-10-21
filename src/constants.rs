@@ -80,9 +80,9 @@ pub enum SignalIdType {
   VirtualSignal = 2,
 }
 
-// Source: defines.riding.acceleration
+// Source: disassembly ShootingState::State
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU8)]
-pub enum ShootingState {
+pub enum ShootingStateState {
   NotShooting = 0,
   ShootingEnemies = 1,
   ShootingSelected = 2,
@@ -1434,6 +1434,7 @@ pub enum InputActionType {
   SetupAssemblingMachine = 0x46,
   SelectedEntityChanged = 0x47,
   SmartPipette = 0x48,
+
   StackSplit = 0x49,
   InventorySplit = 0x4a,
   CancelCraft = 0x4b,
@@ -1473,6 +1474,7 @@ pub enum InputActionType {
   AlternativeCopy = 0x6d,
   SelectBlueprintEntities = 0x6e,
   AltSelectBlueprintEntities = 0x6f,
+
 
   SetupBlueprint = 0x70,
   SetupSingleBlueprintRecord = 0x71,

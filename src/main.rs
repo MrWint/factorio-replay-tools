@@ -15,8 +15,8 @@ use zip::write::FileOptions;
 
 fn main() {
   // load_and_save_test();
-  // assemble_test_tas();
-  assemble_automation_tas();
+  assemble_test_tas();
+  // assemble_automation_tas();
   // parse_items_game_data();
   // parse_recipes_game_data();
   // parse_technologies_game_data();

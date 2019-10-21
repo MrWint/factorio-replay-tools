@@ -1,26 +1,15 @@
 use crate::constants::*;
 use num_traits::{FromPrimitive, ToPrimitive};
 use std::io::{BufRead, Seek, Write};
-use factorio_serialize::{Error, ReadWrite, Reader, Result, Writer};
+use factorio_serialize::{Error, ReadWrite, ReadWriteStruct, Reader, Result, Writer};
 
-#[derive(Debug)]
+#[derive(Debug, ReadWriteStruct)]
 pub struct EquipmentData {
-  pos: TilePosition,
+  pos: EquipmentPosition,
   typ: EquipmentDataType,
 }
-impl ReadWrite for EquipmentData {
-  fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
-    let pos = TilePosition::read(r)?;
-    let typ = EquipmentDataType::read(r)?;
-    Ok(Self { pos, typ, })
-  }
-  fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
-    self.pos.write(w)?;
-    self.typ.write(w)
-  }
-}
 
-#[derive(Debug)]
+#[derive(Debug, ReadWriteStruct)]
 pub struct Slot { // ItemStackTargetSpecification
   pub inventory_index: u8, // from: defines.inventory
   pub slot_index: u16, // context-dependent
@@ -53,62 +42,23 @@ impl Slot {
     Slot { inventory_index: 3, slot_index, source: SlotSource::EntityInventory, target: SlotTarget::Default, }
   }
 }
-impl ReadWrite for Slot {
-  fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
-    let inventory_index = r.read_u8()?;
-    let slot_index = r.read_u16()?;
-    let source = SlotSource::read(r)?;
-    let target = SlotTarget::read(r)?;
-    Ok(Slot { inventory_index, slot_index, source, target, })
-  }
-  fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
-    w.write_u8(self.inventory_index)?;
-    w.write_u16(self.slot_index)?;
-    self.source.write(w)?;
-    self.target.write(w)
-  }
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+type FixedPoint32 = i32;
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
 pub struct MapPosition { // in 1/256th tiles
-  pub x: i32,
-  pub y: i32,
+  pub x: FixedPoint32,
+  pub y: FixedPoint32,
 }
 impl MapPosition {
-  pub fn new(x: i32, y: i32) -> Self {
+  pub fn new(x: FixedPoint32, y: FixedPoint32) -> Self {
     Self { x, y }
   }
 }
-impl ReadWrite for MapPosition {
-  fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
-    let x = r.read_i32()?;
-    let y = r.read_i32()?;
-    Ok(MapPosition { x, y, })
-  }
-  fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
-    w.write_i32(self.x)?;
-    w.write_i32(self.y)
-  }
-}
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, ReadWriteStruct)]
 pub struct BoundingBox {
   pub left_top: MapPosition,
   pub right_bottom: MapPosition,
   pub orientation: f32, // always in [0,1)
-}
-impl ReadWrite for BoundingBox {
-  fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
-    let left_top = MapPosition::read(r)?;
-    let right_bottom = MapPosition::read(r)?;
-    let orientation = r.read_f32()?;
-    Ok(BoundingBox { left_top, right_bottom, orientation, })
-  }
-  fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
-    self.left_top.write(w)?;
-    self.right_bottom.write(w)?;
-    w.write_f32(self.orientation)
-  }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -131,38 +81,22 @@ impl ReadWrite for SelectAreaData {
   }
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct EquipmentPosition {
+  pub x: i32,
+  pub y: i32,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
 pub struct TilePosition {
   pub x: i32,
   pub y: i32,
 }
-impl ReadWrite for TilePosition {
-  fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
-    let x = r.read_i32()?;
-    let y = r.read_i32()?;
-    Ok(TilePosition { x, y, })
-  }
-  fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
-    w.write_i32(self.x)?;
-    w.write_i32(self.y)
-  }
-}
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
 pub struct CrcData {
   pub crc: u32,
   pub tick_of_crc: u32,
-}
-impl ReadWrite for CrcData {
-  fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
-    let crc = r.read_u32()?;
-    let tick_of_crc = r.read_u32()?;
-    Ok(Self { crc, tick_of_crc, })
-  }
-  fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
-    w.write_u32(self.crc)?;
-    w.write_u32(self.tick_of_crc)
-  }
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -228,7 +162,7 @@ impl ReadWrite for SignalIdOrConstant {
   }
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
 pub struct GuiChangedData {
   pub gui_element_index: u32,
   pub button: MouseButton,
@@ -236,56 +170,55 @@ pub struct GuiChangedData {
   pub is_control: bool,
   pub is_shift: bool,
 }
-impl ReadWrite for GuiChangedData {
-  fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
-    let gui_element_index = r.read_u32()?;
-    let button = MouseButton::read(r)?;
-    let is_alt = r.read_bool()?;
-    let is_control = r.read_bool()?;
-    let is_shift = r.read_bool()?;
-    Ok(GuiChangedData { gui_element_index, button, is_alt, is_control, is_shift, })
-  }
-  fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
-    w.write_u32(self.gui_element_index)?;
-    self.button.write(w)?;
-    w.write_bool(self.is_alt)?;
-    w.write_bool(self.is_control)?;
-    w.write_bool(self.is_shift)
-  }
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct SetupBlueprintData {
+  pub include_modules: bool,
+  pub include_entities: bool,
+  pub include_tiles: bool,
+  pub include_station_names: bool,
+  pub include_trains: bool,
+  pub excluded_entities: Vec<u32>,
+  pub excluded_tiles: Vec<u32>,
+  pub excluded_items: Vec<Item>,
+  pub icons: Vec<SignalId>,
 }
 
-// #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-// pub struct SetupBlueprintData {
-//   pub include_modules: bool,
-//   pub include_entities: bool,
-//   pub include_tiles: bool,
-//   pub include_station_names: bool,
-//   pub include_trains: bool,
-//   pub excluded_entities: Vec<u32>,
-//   pub excluded_tiles: Vec<u32>,
-//   pub excluded_items: Vec<Item>,
-//   pub icons: Vec<SignalId>,
-// }
-// impl ReadWrite for SetupBlueprintData {
-//   fn read(r: &mut ReplayReader) -> Result<Self> {
-//     let include_modules = r.read_bool()?;
-//     let include_entities = r.read_bool()?;
-//     let include_tiles = r.read_bool()?;
-//     let include_station_names = r.read_bool()?;
-//     let include_trains = r.read_bool()?;
 
-//     let count = r.read_opt_u32()?;
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct BuildItemParameters {
+  pub position: MapPosition,
+  pub direction: Direction,
+  #[negated_bool] pub created_by_moving: bool,
+  #[negated_bool] pub allow_belt_power_replace: bool,
+  pub shift_build: bool,
+  pub skip_fog_of_war: bool,
+}
 
-//     Ok(SetupBlueprintData { include_modules, include_entities, include_tiles, include_station_names, include_trains, })
-//   }
-//   fn write(&self, w: &mut ReplayWriter) -> Result<()> {
-//     w.write_bool(self.include_modules)?;
-//     w.write_bool(self.include_entities)?;
-//     w.write_bool(self.include_tiles)?;
-//     w.write_bool(self.include_station_names)?;
-//     w.write_bool(self.include_trains)
-//   }
-// }
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct RidingState {
+  pub direction: RidingDirection,
+  pub acceleration_state: RidingAccelerationState,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct CraftData {
+  pub recipe: Recipe,
+  pub count: u32,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct ShootingState {
+  pub state: ShootingStateState,
+  pub target: MapPosition,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct SmartPipetteData {
+  pub entity: Entity,
+  pub tile: Tile,
+  pub pick_ghost_cursor: bool,
+}
 
 #[derive(Debug)]
 pub enum InputAction {
@@ -296,27 +229,27 @@ pub enum InputAction {
   AlternativeCopy { area: SelectAreaData },
   AltSelectBlueprintEntities { area: SelectAreaData },
   BeginMining,
-  BeginMiningTerrain { pos: MapPosition },
-  BuildItem { pos: MapPosition, dir: Direction, created_by_moving: bool, size: u8, ghost_mode: bool, skip_fog_of_war: bool, },
+  BeginMiningTerrain(MapPosition),
+  BuildItem(BuildItemParameters),
   CancelCraft { crafting_index: u16, count: u16, },
   CancelDropBlueprintRecord,
   CancelNewBlueprint,
   ChangeActiveItemGroupForCrafting { item_group: ItemGroup, },
   ChangeActiveItemGroupForFilters { item_group: ItemGroup, },
-  ChangeRidingState { direction: RidingDirection, acceleration_state: RidingAccelerationState, },
-  ChangeShootingState { state: ShootingState, pos: MapPosition, },
+  ChangeRidingState(RidingState),
+  ChangeShootingState(ShootingState),
   ChangeTrainStopStation { new_name: String, },
-  CheckCRC { crc: CrcData, },
-  CheckCRCHeuristic { crc: CrcData, },
+  CheckCRC(CrcData),
+  CheckCRCHeuristic(CrcData),
   CleanCursorStack,
   CloseBlueprintRecord,
   CloseGui,
   ConnectRollingStock,
   Copy { area: SelectAreaData },
   CopyEntitySettings,
-  Craft { recipe: Recipe, amount: u32, },
-  CursorSplit { slot: Slot, },
-  CursorTransfer { slot: Slot, },
+  Craft(CraftData),
+  CursorSplit(Slot),
+  CursorTransfer(Slot),
   CycleBlueprintBookBackwards,
   CycleBlueprintBookForwards,
   CycleClipboardBackwards,
@@ -325,7 +258,7 @@ pub enum InputAction {
   DeleteBlueprintLibrary,
   DestroyOpenedItem,
   DisconnectRollingStock,
-  DropItem { pos: MapPosition },
+  DropItem(MapPosition),
   GameCreatedFromScenario,
   GuiCheckedStateChanged { gui_changed_data: GuiChangedData },
   GuiClick { gui_changed_data: GuiChangedData, },
@@ -336,8 +269,8 @@ pub enum InputAction {
   GuiSwitchStateChanged { gui_changed_data: GuiChangedData, value: SwitchState },
   GuiTextChanged { gui_changed_data: GuiChangedData, value: String },
   GuiValueChanged { gui_changed_data: GuiChangedData, value: f64 },
-  InventorySplit { slot: Slot, },
-  InventoryTransfer { slot: Slot, },
+  InventorySplit(Slot),
+  InventoryTransfer(Slot),
   LaunchRocket,
   MarketOffer { slot_index: u32, count: u32, },
   MoveOnZoom { x: f64, y: f64, },
@@ -347,45 +280,45 @@ pub enum InputAction {
   OpenBlueprintLibraryGui,
   OpenBonusGui,
   OpenCharacterGui,
-  OpenEquipment { equipment: EquipmentData, },
+  OpenEquipment(EquipmentData),
   OpenGui,
-  OpenItem { slot: Slot, },
+  OpenItem(Slot),
   OpenKillsGui,
   OpenLogisticGui,
-  OpenModItem { slot: Slot, },
+  OpenModItem(Slot),
   OpenProductionGui,
   OpenTechnologyGui,
   OpenTrainsGui,
   OpenTutorialsGui,
   PasteEntitySettings,
-  PlaceEquipment { equipment: EquipmentData, },
+  PlaceEquipment(EquipmentData),
   ResetAssemblingMachine,
   SelectBlueprintEntities { area: SelectAreaData },
-  SelectedEntityChanged { pos: MapPosition, },
+  SelectedEntityChanged(MapPosition),
   SelectedEntityCleared,
   SelectNextValidGun,
   SetCircuitCondition { circuit_index: u8, comparison: Comparison, first_signal_id: SignalId, second_signal_id: SignalIdOrConstant, },
   SetCircuitModeOfOperation { mode_of_operation: u8, enabled: bool, },
   SetFilter { slot: Slot, item: Item, },
-  SetInventoryBar { slot: Slot, },
+  SetInventoryBar(Slot),
   SetLogisticFilterItem { item: Item, filter_index: u16, count: u32, },
   SetLogisticFilterSignal { signal: SignalId, filter_index: u16, count: u32, },
   SetSignal { signal_id: SignalId, signal_index: u16, },
-  SetupAssemblingMachine { recipe: Recipe, },
+  SetupAssemblingMachine(Recipe),
   SingleplayerInit,
-  SmartPipette { entity: Entity, tile: Tile, pick_ghost_cursor: bool },
-  StackSplit { slot: Slot, },
-  StackTransfer { slot: Slot, },
+  SmartPipette(SmartPipetteData),
+  StackSplit(Slot),
+  StackTransfer(Slot),
   StartRepair { pos: MapPosition, },
   StartResearch { technology: Technology },
-  StartWalking { dir: Direction },
+  StartWalking(Direction),
   StopBuildingByMoving,
   StopMining,
   StopMovementInTheNextTick,
   StopRepair,
   StopWalking,
   SwitchToRenameStopGui,
-  TakeEquipment { equipment: EquipmentData, },
+  TakeEquipment(EquipmentData),
   ToggleDeconstructionItemEntityFilterMode,
   ToggleDeconstructionItemTileFilterMode,
   ToggleDriving,
@@ -399,7 +332,7 @@ pub enum InputAction {
   UpgradeOpenedBlueprint,
   UseArtilleryRemote { pos: MapPosition, },
   UseItem { pos: MapPosition, },
-  WireDragging { pos: MapPosition, },
+  WireDragging(MapPosition),
   WriteToConsole { value: String, },
 
 
@@ -428,16 +361,8 @@ impl InputAction {
       InputActionType::AltSelectBlueprintEntities => Ok(InputAction::AltSelectBlueprintEntities { area: SelectAreaData::read(r)? }),
       InputActionType::AlternativeCopy => Ok(InputAction::AlternativeCopy { area: SelectAreaData::read(r)? }),
       InputActionType::BeginMining => Ok(InputAction::BeginMining),
-      InputActionType::BeginMiningTerrain => Ok(InputAction::BeginMiningTerrain { pos: MapPosition::read(r)? }),
-      InputActionType::BuildItem => {
-        let pos = MapPosition::read(r)?;
-        let dir = Direction::read(r)?;
-        let created_by_moving = r.read_bool()?;
-        let size = r.read_u8()?;
-        let ghost_mode = r.read_bool()?;
-        let skip_fog_of_war = r.read_bool()?;
-        Ok(InputAction::BuildItem { pos, dir, created_by_moving, size, ghost_mode, skip_fog_of_war, })
-      },
+      InputActionType::BeginMiningTerrain => Ok(InputAction::BeginMiningTerrain(MapPosition::read(r)?)),
+      InputActionType::BuildItem => Ok(InputAction::BuildItem(BuildItemParameters::read(r)?)),
       InputActionType::CancelCraft => {
         let crafting_index = r.read_u16()?;
         let count = r.read_u16()?;
@@ -447,32 +372,20 @@ impl InputAction {
       InputActionType::CancelNewBlueprint => Ok(InputAction::CancelNewBlueprint),
       InputActionType::ChangeActiveItemGroupForCrafting => Ok(InputAction::ChangeActiveItemGroupForCrafting { item_group: ItemGroup::read(r)?, }),
       InputActionType::ChangeActiveItemGroupForFilters => Ok(InputAction::ChangeActiveItemGroupForFilters { item_group: ItemGroup::read(r)?, }),
-      InputActionType::ChangeRidingState => {
-        let direction = RidingDirection::read(r)?;
-        let acceleration_state = RidingAccelerationState::read(r)?;
-        Ok(InputAction::ChangeRidingState { direction, acceleration_state, })
-      },
-      InputActionType::ChangeShootingState => {
-        let state = ShootingState::read(r)?;
-        let pos = MapPosition::read(r)?;
-        Ok(InputAction::ChangeShootingState { state, pos, })
-      },
+      InputActionType::ChangeRidingState => Ok(InputAction::ChangeRidingState(RidingState::read(r)?)),
+      InputActionType::ChangeShootingState => Ok(InputAction::ChangeShootingState(ShootingState::read(r)?)),
       InputActionType::ChangeTrainStopStation => Ok(InputAction::ChangeTrainStopStation { new_name: r.read_string()?, }),
-      InputActionType::CheckCRC => Ok(InputAction::CheckCRC { crc: CrcData::read(r)?, }),
-      InputActionType::CheckCRCHeuristic => Ok(InputAction::CheckCRCHeuristic { crc: CrcData::read(r)?, }),
+      InputActionType::CheckCRC => Ok(InputAction::CheckCRC(CrcData::read(r)?)),
+      InputActionType::CheckCRCHeuristic => Ok(InputAction::CheckCRCHeuristic(CrcData::read(r)?)),
       InputActionType::CleanCursorStack => Ok(InputAction::CleanCursorStack),
       InputActionType::CloseBlueprintRecord => Ok(InputAction::CloseBlueprintRecord),
       InputActionType::CloseGui => Ok(InputAction::CloseGui),
       InputActionType::ConnectRollingStock => Ok(InputAction::ConnectRollingStock),
       InputActionType::Copy => Ok(InputAction::Copy { area: SelectAreaData::read(r)? }),
       InputActionType::CopyEntitySettings => Ok(InputAction::CopyEntitySettings),
-      InputActionType::Craft => {
-        let recipe = Recipe::read(r)?;
-        let amount = r.read_u32()?;
-        Ok(InputAction::Craft { recipe, amount, })
-      },
-      InputActionType::CursorSplit => Ok(InputAction::CursorSplit { slot: Slot::read(r)? }),
-      InputActionType::CursorTransfer => Ok(InputAction::CursorTransfer { slot: Slot::read(r)? }),
+      InputActionType::Craft => Ok(InputAction::Craft(CraftData::read(r)?)),
+      InputActionType::CursorSplit => Ok(InputAction::CursorSplit(Slot::read(r)?)),
+      InputActionType::CursorTransfer => Ok(InputAction::CursorTransfer(Slot::read(r)?)),
       InputActionType::CycleBlueprintBookBackwards => Ok(InputAction::CycleBlueprintBookBackwards),
       InputActionType::CycleBlueprintBookForwards => Ok(InputAction::CycleBlueprintBookForwards),
       InputActionType::CycleClipboardBackwards => Ok(InputAction::CycleClipboardBackwards),
@@ -481,7 +394,7 @@ impl InputAction {
       InputActionType::DeleteBlueprintLibrary => Ok(InputAction::DeleteBlueprintLibrary),
       InputActionType::DestroyOpenedItem => Ok(InputAction::DestroyOpenedItem),
       InputActionType::DisconnectRollingStock => Ok(InputAction::DisconnectRollingStock),
-      InputActionType::DropItem => Ok(InputAction::DropItem { pos: MapPosition::read(r)? }),
+      InputActionType::DropItem => Ok(InputAction::DropItem(MapPosition::read(r)?)),
       InputActionType::GameCreatedFromScenario => Ok(InputAction::GameCreatedFromScenario),
       InputActionType::GuiCheckedStateChanged => Ok(InputAction::GuiCheckedStateChanged { gui_changed_data: GuiChangedData::read(r)?, }),
       InputActionType::GuiClick => Ok(InputAction::GuiClick { gui_changed_data: GuiChangedData::read(r)?, }),
@@ -517,8 +430,8 @@ impl InputAction {
         let value = r.read_f64()?;
         Ok(InputAction::GuiValueChanged { gui_changed_data, value })
       },
-      InputActionType::InventorySplit => Ok(InputAction::InventorySplit { slot: Slot::read(r)? }),
-      InputActionType::InventoryTransfer => Ok(InputAction::InventoryTransfer { slot: Slot::read(r)? }),
+      InputActionType::InventorySplit => Ok(InputAction::InventorySplit(Slot::read(r)?)),
+      InputActionType::InventoryTransfer => Ok(InputAction::InventoryTransfer(Slot::read(r)?)),
       InputActionType::LaunchRocket => Ok(InputAction::LaunchRocket),
       InputActionType::MarketOffer => {
         let slot_index = r.read_u32()?;
@@ -536,21 +449,21 @@ impl InputAction {
       InputActionType::OpenBlueprintLibraryGui => Ok(InputAction::OpenBlueprintLibraryGui),
       InputActionType::OpenBonusGui => Ok(InputAction::OpenBonusGui),
       InputActionType::OpenCharacterGui => Ok(InputAction::OpenCharacterGui),
-      InputActionType::OpenEquipment => Ok(InputAction::OpenEquipment { equipment: EquipmentData::read(r)?, }),
+      InputActionType::OpenEquipment => Ok(InputAction::OpenEquipment(EquipmentData::read(r)?)),
       InputActionType::OpenGui => Ok(InputAction::OpenGui),
-      InputActionType::OpenItem => Ok(InputAction::OpenItem { slot: Slot::read(r)?, }),
+      InputActionType::OpenItem => Ok(InputAction::OpenItem(Slot::read(r)?)),
       InputActionType::OpenKillsGui => Ok(InputAction::OpenKillsGui),
       InputActionType::OpenLogisticGui => Ok(InputAction::OpenLogisticGui),
-      InputActionType::OpenModItem => Ok(InputAction::OpenModItem { slot: Slot::read(r)?, }),
+      InputActionType::OpenModItem => Ok(InputAction::OpenModItem(Slot::read(r)?)),
       InputActionType::OpenProductionGui => Ok(InputAction::OpenProductionGui),
       InputActionType::OpenTechnologyGui => Ok(InputAction::OpenTechnologyGui),
       InputActionType::OpenTrainsGui => Ok(InputAction::OpenTrainsGui),
       InputActionType::OpenTutorialsGui => Ok(InputAction::OpenTutorialsGui),
       InputActionType::PasteEntitySettings => Ok(InputAction::PasteEntitySettings),
-      InputActionType::PlaceEquipment => Ok(InputAction::PlaceEquipment { equipment: EquipmentData::read(r)?, }),
+      InputActionType::PlaceEquipment => Ok(InputAction::PlaceEquipment(EquipmentData::read(r)?)),
       InputActionType::ResetAssemblingMachine => Ok(InputAction::ResetAssemblingMachine),
       InputActionType::SelectBlueprintEntities => Ok(InputAction::SelectBlueprintEntities { area: SelectAreaData::read(r)? }),
-      InputActionType::SelectedEntityChanged => Ok(InputAction::SelectedEntityChanged { pos: MapPosition::read(r)?, }),
+      InputActionType::SelectedEntityChanged => Ok(InputAction::SelectedEntityChanged(MapPosition::read(r)?)),
       InputActionType::SelectedEntityCleared => Ok(InputAction::SelectedEntityCleared),
       InputActionType::SelectNextValidGun => Ok(InputAction::SelectNextValidGun),
       InputActionType::SetCircuitCondition => {
@@ -570,7 +483,7 @@ impl InputAction {
         let item = Item::read(r)?;
         Ok(InputAction::SetFilter { slot, item, })
       },
-      InputActionType::SetInventoryBar => Ok(InputAction::SetInventoryBar { slot: Slot::read(r)? }),
+      InputActionType::SetInventoryBar => Ok(InputAction::SetInventoryBar(Slot::read(r)?)),
       InputActionType::SetLogisticFilterItem => {
         let item = Item::read(r)?;
         let filter_index = r.read_u16()?;
@@ -588,26 +501,21 @@ impl InputAction {
         let signal_index = r.read_u16()?;
         Ok(InputAction::SetSignal { signal_id, signal_index, })
       },
-      InputActionType::SetupAssemblingMachine => Ok(InputAction::SetupAssemblingMachine { recipe: Recipe::read(r)? }),
+      InputActionType::SetupAssemblingMachine => Ok(InputAction::SetupAssemblingMachine(Recipe::read(r)?)),
       InputActionType::SingleplayerInit => Ok(InputAction::SingleplayerInit),
-      InputActionType::SmartPipette => {
-        let entity = Entity::read(r)?;
-        let tile = Tile::read(r)?;
-        let pick_ghost_cursor = r.read_bool()?;
-        Ok(InputAction::SmartPipette { entity, tile, pick_ghost_cursor })
-      },
-      InputActionType::StackSplit => Ok(InputAction::StackSplit { slot: Slot::read(r)? }),
-      InputActionType::StackTransfer => Ok(InputAction::StackTransfer { slot: Slot::read(r)? }),
+      InputActionType::SmartPipette => Ok(InputAction::SmartPipette(SmartPipetteData::read(r)?)),
+      InputActionType::StackSplit => Ok(InputAction::StackSplit(Slot::read(r)?)),
+      InputActionType::StackTransfer => Ok(InputAction::StackTransfer(Slot::read(r)?)),
       InputActionType::StartRepair => Ok(InputAction::StartRepair { pos: MapPosition::read(r)?, }),
       InputActionType::StartResearch => Ok(InputAction::StartResearch { technology: Technology::read(r)?, }),
-      InputActionType::StartWalking => Ok(InputAction::StartWalking { dir: Direction::read(r)? }),
+      InputActionType::StartWalking => Ok(InputAction::StartWalking(Direction::read(r)?)),
       InputActionType::StopBuildingByMoving => Ok(InputAction::StopBuildingByMoving),
       InputActionType::StopMining => Ok(InputAction::StopMining),
       InputActionType::StopMovementInTheNextTick => Ok(InputAction::StopMovementInTheNextTick),
       InputActionType::StopRepair => Ok(InputAction::StopRepair),
       InputActionType::StopWalking => Ok(InputAction::StopWalking),
       InputActionType::SwitchToRenameStopGui => Ok(InputAction::SwitchToRenameStopGui),
-      InputActionType::TakeEquipment => Ok(InputAction::TakeEquipment { equipment: EquipmentData::read(r)?, }),
+      InputActionType::TakeEquipment => Ok(InputAction::TakeEquipment(EquipmentData::read(r)?)),
       InputActionType::ToggleDeconstructionItemEntityFilterMode => Ok(InputAction::ToggleDeconstructionItemEntityFilterMode),
       InputActionType::ToggleDeconstructionItemTileFilterMode => Ok(InputAction::ToggleDeconstructionItemTileFilterMode),
       InputActionType::ToggleDriving => Ok(InputAction::ToggleDriving),
@@ -621,7 +529,7 @@ impl InputAction {
       InputActionType::UseArtilleryRemote => Ok(InputAction::UseArtilleryRemote { pos: MapPosition::read(r)?, }),
       InputActionType::Upgrade => Ok(InputAction::Upgrade { area: SelectAreaData::read(r)? }),
       InputActionType::UpgradeOpenedBlueprint => Ok(InputAction::UpgradeOpenedBlueprint),
-      InputActionType::WireDragging => Ok(InputAction::WireDragging { pos: MapPosition::read(r)?, }),
+      InputActionType::WireDragging => Ok(InputAction::WireDragging(MapPosition::read(r)?)),
       InputActionType::WriteToConsole => Ok(InputAction::WriteToConsole { value: r.read_string()?, }),
 
 
@@ -716,7 +624,8 @@ impl InputAction {
       InputAction::AlternativeCopy { area } => area.write(w),
       InputAction::AltSelectBlueprintEntities { area } => area.write(w),
       InputAction::BeginMining => Ok(()),
-      InputAction::BeginMiningTerrain { pos, } => pos.write(w),
+      InputAction::BeginMiningTerrain(pos) => pos.write(w),
+      InputAction::BuildItem(params) => params.write(w),
       InputAction::CancelCraft { crafting_index, count, } => {
         w.write_u16(*crafting_index)?;
         w.write_u16(*count)
@@ -725,29 +634,20 @@ impl InputAction {
       InputAction::CancelNewBlueprint => Ok(()),
       InputAction::ChangeActiveItemGroupForCrafting { item_group, } => item_group.write(w),
       InputAction::ChangeActiveItemGroupForFilters { item_group, } => item_group.write(w),
-      InputAction::ChangeRidingState { acceleration_state, direction, } => {
-        direction.write(w)?;
-        acceleration_state.write(w)
-      },
-      InputAction::ChangeShootingState { state, pos, } => {
-        state.write(w)?;
-        pos.write(w)
-      },
+      InputAction::ChangeRidingState(riding_state) => riding_state.write(w),
+      InputAction::ChangeShootingState(state) => state.write(w),
       InputAction::ChangeTrainStopStation { new_name, } => w.write_string(new_name),
-      InputAction::CheckCRC { crc, } => crc.write(w),
-      InputAction::CheckCRCHeuristic { crc, } => crc.write(w),
+      InputAction::CheckCRC(crc) => crc.write(w),
+      InputAction::CheckCRCHeuristic(crc) => crc.write(w),
       InputAction::CleanCursorStack => Ok(()),
       InputAction::CloseBlueprintRecord => Ok(()),
       InputAction::CloseGui => Ok(()),
       InputAction::ConnectRollingStock => Ok(()),
       InputAction::Copy { area } => area.write(w),
       InputAction::CopyEntitySettings => Ok(()),
-      InputAction::Craft { recipe, amount, } => {
-        recipe.write(w)?;
-        w.write_u32(*amount)
-      },
-      InputAction::CursorSplit { slot, } => slot.write(w),
-      InputAction::CursorTransfer { slot, } => slot.write(w),
+      InputAction::Craft(data) => data.write(w),
+      InputAction::CursorSplit(slot) => slot.write(w),
+      InputAction::CursorTransfer(slot) => slot.write(w),
       InputAction::CycleBlueprintBookBackwards => Ok(()),
       InputAction::CycleBlueprintBookForwards => Ok(()),
       InputAction::CycleClipboardBackwards => Ok(()),
@@ -756,7 +656,7 @@ impl InputAction {
       InputAction::DeleteBlueprintLibrary => Ok(()),
       InputAction::DestroyOpenedItem => Ok(()),
       InputAction::DisconnectRollingStock => Ok(()),
-      InputAction::DropItem { pos, } => pos.write(w),
+      InputAction::DropItem(pos) => pos.write(w),
       InputAction::GameCreatedFromScenario => Ok(()),
       InputAction::GuiCheckedStateChanged { gui_changed_data } => gui_changed_data.write(w),
       InputAction::GuiClick { gui_changed_data, } => gui_changed_data.write(w),
@@ -786,8 +686,8 @@ impl InputAction {
         gui_changed_data.write(w)?;
         w.write_f64(*value)
       },
-      InputAction::InventorySplit { slot, } => slot.write(w),
-      InputAction::InventoryTransfer { slot, } => slot.write(w),
+      InputAction::InventorySplit(slot) => slot.write(w),
+      InputAction::InventoryTransfer(slot) => slot.write(w),
       InputAction::LaunchRocket => Ok(()),
       InputAction::MarketOffer { slot_index, count, } => {
         w.write_u32(*slot_index)?;
@@ -803,21 +703,21 @@ impl InputAction {
       InputAction::OpenBlueprintLibraryGui => Ok(()),
       InputAction::OpenBonusGui => Ok(()),
       InputAction::OpenCharacterGui => Ok(()),
-      InputAction::OpenEquipment { equipment, } => equipment.write(w),
+      InputAction::OpenEquipment(equipment) => equipment.write(w),
       InputAction::OpenGui => Ok(()),
-      InputAction::OpenItem { slot, } => slot.write(w),
+      InputAction::OpenItem(slot) => slot.write(w),
       InputAction::OpenKillsGui => Ok(()),
       InputAction::OpenLogisticGui => Ok(()),
-      InputAction::OpenModItem { slot, } => slot.write(w),
+      InputAction::OpenModItem(slot) => slot.write(w),
       InputAction::OpenProductionGui => Ok(()),
       InputAction::OpenTechnologyGui => Ok(()),
       InputAction::OpenTrainsGui => Ok(()),
       InputAction::OpenTutorialsGui => Ok(()),
       InputAction::PasteEntitySettings => Ok(()),
-      InputAction::PlaceEquipment { equipment, } => equipment.write(w),
+      InputAction::PlaceEquipment(equipment) => equipment.write(w),
       InputAction::ResetAssemblingMachine => Ok(()),
       InputAction::SelectBlueprintEntities { area } => area.write(w),
-      InputAction::SelectedEntityChanged { pos, } => pos.write(w),
+      InputAction::SelectedEntityChanged(pos) => pos.write(w),
       InputAction::SelectedEntityCleared => Ok(()),
       InputAction::SelectNextValidGun => Ok(()),
       InputAction::SetCircuitCondition { circuit_index, comparison, first_signal_id, second_signal_id, } => {
@@ -834,7 +734,7 @@ impl InputAction {
         slot.write(w)?;
         item.write(w)
       },
-      InputAction::SetInventoryBar { slot, } => slot.write(w),
+      InputAction::SetInventoryBar(slot) => slot.write(w),
       InputAction::SetLogisticFilterItem { item, filter_index, count, } => {
         item.write(w)?;
         w.write_u16(*filter_index)?;
@@ -849,25 +749,21 @@ impl InputAction {
         signal_id.write(w)?;
         w.write_u16(*signal_index)
       },
-      InputAction::SetupAssemblingMachine { recipe, } => recipe.write(w),
+      InputAction::SetupAssemblingMachine(recipe) => recipe.write(w),
       InputAction::SingleplayerInit => Ok(()),
-      InputAction::SmartPipette { entity, tile, pick_ghost_cursor, } => {
-        entity.write(w)?;
-        tile.write(w)?;
-        w.write_bool(*pick_ghost_cursor)
-      },
-      InputAction::StackSplit { slot, } => slot.write(w),
-      InputAction::StackTransfer { slot, } => slot.write(w),
+      InputAction::SmartPipette(data) => data.write(w),
+      InputAction::StackSplit(slot) => slot.write(w),
+      InputAction::StackTransfer(slot) => slot.write(w),
       InputAction::StartRepair { pos, } => pos.write(w),
       InputAction::StartResearch { technology, } => technology.write(w),
-      InputAction::StartWalking { dir, } => dir.write(w),
+      InputAction::StartWalking(direction) => direction.write(w),
       InputAction::StopBuildingByMoving => Ok(()),
       InputAction::StopMining => Ok(()),
       InputAction::StopMovementInTheNextTick => Ok(()),
       InputAction::StopRepair => Ok(()),
       InputAction::StopWalking => Ok(()),
       InputAction::SwitchToRenameStopGui => Ok(()),
-      InputAction::TakeEquipment { equipment, } => equipment.write(w),
+      InputAction::TakeEquipment(equipment) => equipment.write(w),
       InputAction::ToggleDeconstructionItemEntityFilterMode => Ok(()),
       InputAction::ToggleDeconstructionItemTileFilterMode => Ok(()),
       InputAction::ToggleDriving => Ok(()),
@@ -881,19 +777,11 @@ impl InputAction {
       InputAction::UseArtilleryRemote { pos, } => pos.write(w),
       InputAction::Upgrade { area } => area.write(w),
       InputAction::UpgradeOpenedBlueprint => Ok(()),
-      InputAction::WireDragging { pos, } => pos.write(w),
+      InputAction::WireDragging(pos) => pos.write(w),
       InputAction::WriteToConsole { value, } => w.write_string(value),
 
 
 
-      InputAction::BuildItem { pos, dir, created_by_moving, size, ghost_mode, skip_fog_of_war, } => {
-        pos.write(w)?;
-        dir.write(w)?;
-        w.write_bool(*created_by_moving)?;
-        w.write_u8(*size)?;
-        w.write_bool(*ghost_mode)?;
-        w.write_bool(*skip_fog_of_war)
-      },
       InputAction::FastEntityTransfer { dir, } => w.write_u8(dir.to_u8().unwrap()),
       InputAction::FastEntitySplit { dir, } => w.write_u8(dir.to_u8().unwrap()),
       InputAction::PlayerJoinGame { player_id, name, } => {

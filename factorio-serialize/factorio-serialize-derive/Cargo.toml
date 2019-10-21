@@ -9,4 +9,5 @@ proc-macro = true
 
 [dependencies]
 syn = "*"
+proc-macro2 = "1.0"
 quote = "*"
