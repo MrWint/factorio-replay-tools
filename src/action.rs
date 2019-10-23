@@ -1,7 +1,6 @@
 use crate::constants::*;
-use num_traits::{FromPrimitive, ToPrimitive};
 use std::io::{BufRead, Seek, Write};
-use factorio_serialize::{Error, ReadWrite, ReadWriteStruct, Reader, Result, Writer};
+use factorio_serialize::{ReadWrite, ReadWriteStruct, ReadWriteTaggedUnion, Reader, Result, Writer};
 
 #[derive(Debug, ReadWriteStruct)]
 pub struct EquipmentData {
@@ -61,24 +60,11 @@ pub struct BoundingBox {
   pub orientation: f32, // always in [0,1)
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, ReadWriteStruct)]
 pub struct SelectAreaData {
   pub bounding_box: BoundingBox,
   pub item: Item,
   pub skip_fog_of_war: bool,
-}
-impl ReadWrite for SelectAreaData {
-  fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
-    let bounding_box = BoundingBox::read(r)?;
-    let item = Item::read(r)?;
-    let skip_fog_of_war = r.read_bool()?;
-    Ok(SelectAreaData { bounding_box, item, skip_fog_of_war, })
-  }
-  fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
-    self.bounding_box.write(w)?;
-    self.item.write(w)?;
-    w.write_bool(self.skip_fog_of_war)
-  }
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
@@ -220,727 +206,446 @@ pub struct SmartPipetteData {
   pub pick_ghost_cursor: bool,
 }
 
-#[derive(Debug)]
-pub enum InputAction {
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct CancelCraftOrder {
+  pub crafting_index: u16,
+  pub count: u16,
+}
+
+#[derive(Debug, ReadWriteStruct)]
+pub struct SetFilterParameters {
+  pub target: Slot,
+  pub filter: Item,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct CircuitCondition {
+  pub comparator: Comparison,
+  pub first_signal: SignalId,
+  pub second_signal: SignalIdOrConstant,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct CircuitConditionParameters {
+  pub circuit_index: i8,
+  pub condition: CircuitCondition,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct SignalData {
+  pub signal_id: SignalId,
+  pub signal_index: u16,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct LogisticFilterItemData {
+  item: Item,
+  filter_index: u16,
+  count: u32,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct LogisticFilterSignalData {
+  signal: SignalId,
+  filter_index: u16,
+  count: u32,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct BehaviorModeOfOperationParameters {
+  mode_of_operation: u8,
+  enabled: bool,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct MarketOfferData {
+  slot_index: u32,
+  count: u32,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct AddTrainStationData {
+  name: String,
+  rail_position: MapPosition,
+  temporary: bool,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct GuiGenericChangedData<T: ReadWrite> {
+  gui_changed_data: GuiChangedData,
+  value: T,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct GuiLocationChangedData {
+  gui_changed_data: GuiChangedData,
+  x: i32,
+  y: i32,
+}
+
+#[derive(Debug, PartialEq, ReadWriteStruct)]
+pub struct Vector {
+  x: f64,
+  y: f64,
+}
+
+#[derive(Debug, ReadWriteStruct)]
+pub struct QuickBarSetSlotParameters {
+  pub location: u16,
+  pub item_to_use: Slot,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct QuickBarPickSlotParameters {
+  pub location: u16,
+  pub pick_ghost_cursor: bool,
+  pub cursor_split: bool,
+}
+
+type FixedPoint16 = i16;
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct SelectedEntityChangedRelativeData {
+  y: FixedPoint16,
+  x: FixedPoint16,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct SelectedEntityChangedVeryClosePreciseData {
+  y: u8, // in 1/16 of a tile, starting from tileY(curpos) - 8
+  x: u8, // in 1/16 of a tile, starting from tileX(curpos) - 8
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct SelectedEntityChangedVeryCloseData {
+  xy: u8, // 2 4-bit numbers format 0xXXXXYYYY in full tiles, starting from tile(curpos) - 8
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct PlayerJoinGameData {
+  #[space_optimized] pub peer_id: u16, // consecutive player ids
+  pub player_index: u16,
+  pub force_id: ForceId,
+  pub username: String,
+  pub as_editor: bool,
+  pub admin: bool,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct QuickBarSetSelectedPageParameters {
+  main_window_row: u8, // top or bottom
+  new_selected_page: u8, // 0-9
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct PixelPosition {
+  x: i32,
+  y: i32,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct UpdateBlueprintShelfData {
+  shelf_player_index: u16,
+  next_record_id: u32,
+  timestamp: u32,
+  records_to_remove: Vec<u32>,
+  records_to_add: Vec<AddBlueprintRecordData>,
+  records_to_update: Vec<UpdateBlueprintData>,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq)]
+pub struct AddBlueprintRecordData {
+  id: u32,
+  hash: Sha1Digest,
+  item: Item,
+  previews_in_book: Option<Vec<SingleRecordDataInBook>>,
+  blueprint_icons: Vec<SignalId>,
+  label: String,
+  add_in_book: u32,
+}
+impl ReadWrite for AddBlueprintRecordData {
+  fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
+    let id = u32::read(r)?;
+    let hash = Sha1Digest::read(r)?;
+    let item = Item::read(r)?;
+    let is_book = bool::read(r)?;
+    let blueprint_icons = <Vec<SignalId>>::read(r)?;
+    let label = String::read(r)?;
+    let add_in_book = u32::read(r)?;
+    let previews_in_book = if is_book {
+      Some(<Vec<SingleRecordDataInBook>>::read(r)?)
+    } else { None };
+    Ok(AddBlueprintRecordData { id, hash, item, previews_in_book, blueprint_icons, label, add_in_book })
+  }
+  fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
+    self.id.write(w)?;
+    self.hash.write(w)?;
+    self.item.write(w)?;
+    self.previews_in_book.is_some().write(w)?;
+    self.blueprint_icons.write(w)?;
+    self.label.write(w)?;
+    self.add_in_book.write(w)?;
+    if let Some(previews_in_book) = &self.previews_in_book {
+      previews_in_book.write(w)
+    } else { Ok(()) }
+  }
+}
+
+#[derive(Debug, Eq, Hash, PartialEq)]
+pub struct Sha1Digest([u8; 20]);
+impl ReadWrite for Sha1Digest {
+  fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
+    let mut sha1 = [0; 20];
+    for i in 0..20 { sha1[i] = r.read_u8()? }
+    Ok(Sha1Digest(sha1))
+  }
+  fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
+    for i in 0..20 { w.write_u8(self.0[i])? }
+    Ok(())
+  }
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct SingleRecordDataInBook {
+  id: u32,
+  item: Item,
+  hash: Sha1Digest,
+  blueprint_icons: Vec<SignalId>,
+  label: String,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct UpdateBlueprintData {
+  id: u32,
+  new_hash: Sha1Digest,
+  new_label: String,
+}
+
+
+#[derive(Debug, ReadWriteTaggedUnion)]
+#[tag_type(InputActionType)]
+#[allow(dead_code)]
+pub enum InputActionData {
+  Nothing,
+  StopWalking,
+  BeginMining,
+  StopMining,
+  ToggleDriving,
+  OpenGui,
+  CloseGui,
+  OpenCharacterGui,
+  ConnectRollingStock,
+  DisconnectRollingStock,
+  SelectedEntityCleared,
+  CleanCursorStack,
+  ResetAssemblingMachine,
+  OpenTechnologyGui,
+  LaunchRocket,
+  OpenBlueprintLibraryGui,
+  OpenProductionGui,
+  OpenKillsGui,
+  StopRepair,
+  CancelNewBlueprint,
+  CloseBlueprintRecord,
+  CopyEntitySettings,
+  PasteEntitySettings,
+  DestroyOpenedItem,
+  UpgradeOpenedBlueprint,
+  ToggleShowEntityInfo,
+  SingleplayerInit,
+  MultiplayerInit,
+  SwitchToRenameStopGui,
+  OpenBonusGui,
+  OpenTrainsGui,
+  OpenAchievementsGui,
+  OpenTutorialsGui,
+  CycleBlueprintBookForwards,
+  CycleBlueprintBookBackwards,
+  CycleClipboardForwards,
+  CycleClipboardBackwards,
+  StopMovementInTheNextTick,
+  ToggleEnableVehicleLogisticsWhileMoving,
+  ToggleDeconstructionItemEntityFilterMode,
+  ToggleDeconstructionItemTileFilterMode,
+  OpenLogisticGui,
+  CancelDropBlueprintRecord,
+  SelectNextValidGun,
+  ToggleMapEditor,
+  DeleteBlueprintLibrary,
+  GameCreatedFromScenario,
   ActivateCopy,
   ActivateCut,
   ActivatePaste,
-  AddTrainStation { name: String, pos: MapPosition, temporary: bool, },
-  AlternativeCopy { area: SelectAreaData },
-  AltSelectBlueprintEntities { area: SelectAreaData },
-  BeginMining,
-  BeginMiningTerrain(MapPosition),
-  BuildItem(BuildItemParameters),
-  CancelCraft { crafting_index: u16, count: u16, },
-  CancelDropBlueprintRecord,
-  CancelNewBlueprint,
-  ChangeActiveItemGroupForCrafting { item_group: ItemGroup, },
-  ChangeActiveItemGroupForFilters { item_group: ItemGroup, },
-  ChangeRidingState(RidingState),
-  ChangeShootingState(ShootingState),
-  ChangeTrainStopStation { new_name: String, },
-  CheckCRC(CrcData),
-  CheckCRCHeuristic(CrcData),
-  CleanCursorStack,
-  CloseBlueprintRecord,
-  CloseGui,
-  ConnectRollingStock,
-  Copy { area: SelectAreaData },
-  CopyEntitySettings,
-  Craft(CraftData),
-  CursorSplit(Slot),
-  CursorTransfer(Slot),
-  CycleBlueprintBookBackwards,
-  CycleBlueprintBookForwards,
-  CycleClipboardBackwards,
-  CycleClipboardForwards,
-  Deconstruct { area: SelectAreaData },
-  DeleteBlueprintLibrary,
-  DestroyOpenedItem,
-  DisconnectRollingStock,
+  Undo,
+  TogglePersonalRoboport,
+  ToggleEquipmentMovementBonus,
+  StopBuildingByMoving,
   DropItem(MapPosition),
-  GameCreatedFromScenario,
-  GuiCheckedStateChanged { gui_changed_data: GuiChangedData },
-  GuiClick { gui_changed_data: GuiChangedData, },
-  GuiConfirmed { gui_changed_data: GuiChangedData, },
-  GuiLocationChanged { gui_changed_data: GuiChangedData, x: i32, y: i32 },
-  GuiSelectedTabChanged { gui_changed_data: GuiChangedData, value: i32 },
-  GuiSelectionStateChanged { gui_changed_data: GuiChangedData, value: i32 },
-  GuiSwitchStateChanged { gui_changed_data: GuiChangedData, value: SwitchState },
-  GuiTextChanged { gui_changed_data: GuiChangedData, value: String },
-  GuiValueChanged { gui_changed_data: GuiChangedData, value: f64 },
-  InventorySplit(Slot),
-  InventoryTransfer(Slot),
-  LaunchRocket,
-  MarketOffer { slot_index: u32, count: u32, },
-  MoveOnZoom { x: f64, y: f64, },
-  MultiplayerInit,
-  Nothing,
-  OpenAchievementsGui,
-  OpenBlueprintLibraryGui,
-  OpenBonusGui,
-  OpenCharacterGui,
-  OpenEquipment(EquipmentData),
-  OpenGui,
+  BuildItem(BuildItemParameters),
+  StartWalking(Direction),
+  BeginMiningTerrain(MapPosition),
+  ChangeRidingState(RidingState),
   OpenItem(Slot),
-  OpenKillsGui,
-  OpenLogisticGui,
   OpenModItem(Slot),
-  OpenProductionGui,
-  OpenTechnologyGui,
-  OpenTrainsGui,
-  OpenTutorialsGui,
-  PasteEntitySettings,
-  PlaceEquipment(EquipmentData),
-  ResetAssemblingMachine,
-  SelectBlueprintEntities { area: SelectAreaData },
-  SelectedEntityChanged(MapPosition),
-  SelectedEntityCleared,
-  SelectNextValidGun,
-  SetCircuitCondition { circuit_index: u8, comparison: Comparison, first_signal_id: SignalId, second_signal_id: SignalIdOrConstant, },
-  SetCircuitModeOfOperation { mode_of_operation: u8, enabled: bool, },
-  SetFilter { slot: Slot, item: Item, },
-  SetInventoryBar(Slot),
-  SetLogisticFilterItem { item: Item, filter_index: u16, count: u32, },
-  SetLogisticFilterSignal { signal: SignalId, filter_index: u16, count: u32, },
-  SetSignal { signal_id: SignalId, signal_index: u16, },
+  OpenEquipment(EquipmentData),
+  CursorTransfer(Slot),
+  CursorSplit(Slot),
+  StackTransfer(Slot),
+  InventoryTransfer(Slot),
+  CheckCRCHeuristic(CrcData),
+  Craft(CraftData),
+  WireDragging(MapPosition),
+  ChangeShootingState(ShootingState),
   SetupAssemblingMachine(Recipe),
-  SingleplayerInit,
+  SelectedEntityChanged(MapPosition),
   SmartPipette(SmartPipetteData),
   StackSplit(Slot),
-  StackTransfer(Slot),
-  StartRepair { pos: MapPosition, },
-  StartResearch { technology: Technology },
-  StartWalking(Direction),
-  StopBuildingByMoving,
-  StopMining,
-  StopMovementInTheNextTick,
-  StopRepair,
-  StopWalking,
-  SwitchToRenameStopGui,
+  InventorySplit(Slot),
+  CancelCraft(CancelCraftOrder),
+  SetFilter(SetFilterParameters),
+  CheckCRC(CrcData),
+  SetCircuitCondition(CircuitConditionParameters),
+  SetSignal(SignalData),
+  StartResearch(Technology),
+  SetLogisticFilterItem(LogisticFilterItemData),
+  SetLogisticFilterSignal(LogisticFilterSignalData),
+  SetCircuitModeOfOperation(BehaviorModeOfOperationParameters),
+  GuiClick(GuiChangedData),
+  GuiConfirmed(GuiChangedData),
+  WriteToConsole(String),
+  MarketOffer(MarketOfferData),
+  AddTrainStation(AddTrainStationData),
+  ChangeTrainStopStation(String),
+  ChangeActiveItemGroupForCrafting(ItemGroup),
+  GuiTextChanged(GuiGenericChangedData<String>),
+  GuiCheckedStateChanged(GuiChangedData),
+  GuiSelectionStateChanged(GuiGenericChangedData<i32>),
+  GuiSelectedTabChanged(GuiGenericChangedData<i32>),
+  GuiValueChanged(GuiGenericChangedData<f64>),
+  GuiSwitchStateChanged(GuiGenericChangedData<SwitchState>),
+  GuiLocationChanged(GuiLocationChangedData),
+  PlaceEquipment(EquipmentData),
   TakeEquipment(EquipmentData),
-  ToggleDeconstructionItemEntityFilterMode,
-  ToggleDeconstructionItemTileFilterMode,
-  ToggleDriving,
-  ToggleEnableVehicleLogisticsWhileMoving,
-  ToggleEquipmentMovementBonus,
-  ToggleMapEditor,
-  TogglePersonalRoboport,
-  ToggleShowEntityInfo,
-  Undo,
-  Upgrade { area: SelectAreaData },
-  UpgradeOpenedBlueprint,
-  UseArtilleryRemote { pos: MapPosition, },
-  UseItem { pos: MapPosition, },
-  WireDragging(MapPosition),
-  WriteToConsole { value: String, },
-
-
-
-  FastEntityTransfer { dir: TransferDirection, },
-  FastEntitySplit { dir: TransferDirection, },
-  PlayerJoinGame { player_id: u16, name: String },
-  QuickBarPickSlot { slot: u16, },
-  QuickBarSetSlot { slot: u16,  source_slot: Slot, },
-  SelectedEntityChangedRelative { x: i16, y: i16, },
-  SelectedEntityChangedVeryClose { x: i8, y: i8, },
-  SelectedEntityChangedVeryClosePrecise { x: i8, y: i8, },
-}
-impl InputAction {
-  pub fn read<R: BufRead + Seek>(action_type: InputActionType, action_type_pos: u64, r: &mut Reader<R>) -> Result<InputAction> {
-    match action_type {
-      InputActionType::ActivateCopy => Ok(InputAction::ActivateCopy),
-      InputActionType::ActivateCut => Ok(InputAction::ActivateCut),
-      InputActionType::ActivatePaste => Ok(InputAction::ActivatePaste),
-      InputActionType::AddTrainStation => {
-        let name = r.read_string()?;
-        let pos = MapPosition::read(r)?;
-        let temporary = r.read_bool()?;
-        Ok(InputAction::AddTrainStation { name, pos, temporary, })
-      },
-      InputActionType::AltSelectBlueprintEntities => Ok(InputAction::AltSelectBlueprintEntities { area: SelectAreaData::read(r)? }),
-      InputActionType::AlternativeCopy => Ok(InputAction::AlternativeCopy { area: SelectAreaData::read(r)? }),
-      InputActionType::BeginMining => Ok(InputAction::BeginMining),
-      InputActionType::BeginMiningTerrain => Ok(InputAction::BeginMiningTerrain(MapPosition::read(r)?)),
-      InputActionType::BuildItem => Ok(InputAction::BuildItem(BuildItemParameters::read(r)?)),
-      InputActionType::CancelCraft => {
-        let crafting_index = r.read_u16()?;
-        let count = r.read_u16()?;
-        Ok(InputAction::CancelCraft { crafting_index, count, })
-      },
-      InputActionType::CancelDropBlueprintRecord => Ok(InputAction::CancelDropBlueprintRecord),
-      InputActionType::CancelNewBlueprint => Ok(InputAction::CancelNewBlueprint),
-      InputActionType::ChangeActiveItemGroupForCrafting => Ok(InputAction::ChangeActiveItemGroupForCrafting { item_group: ItemGroup::read(r)?, }),
-      InputActionType::ChangeActiveItemGroupForFilters => Ok(InputAction::ChangeActiveItemGroupForFilters { item_group: ItemGroup::read(r)?, }),
-      InputActionType::ChangeRidingState => Ok(InputAction::ChangeRidingState(RidingState::read(r)?)),
-      InputActionType::ChangeShootingState => Ok(InputAction::ChangeShootingState(ShootingState::read(r)?)),
-      InputActionType::ChangeTrainStopStation => Ok(InputAction::ChangeTrainStopStation { new_name: r.read_string()?, }),
-      InputActionType::CheckCRC => Ok(InputAction::CheckCRC(CrcData::read(r)?)),
-      InputActionType::CheckCRCHeuristic => Ok(InputAction::CheckCRCHeuristic(CrcData::read(r)?)),
-      InputActionType::CleanCursorStack => Ok(InputAction::CleanCursorStack),
-      InputActionType::CloseBlueprintRecord => Ok(InputAction::CloseBlueprintRecord),
-      InputActionType::CloseGui => Ok(InputAction::CloseGui),
-      InputActionType::ConnectRollingStock => Ok(InputAction::ConnectRollingStock),
-      InputActionType::Copy => Ok(InputAction::Copy { area: SelectAreaData::read(r)? }),
-      InputActionType::CopyEntitySettings => Ok(InputAction::CopyEntitySettings),
-      InputActionType::Craft => Ok(InputAction::Craft(CraftData::read(r)?)),
-      InputActionType::CursorSplit => Ok(InputAction::CursorSplit(Slot::read(r)?)),
-      InputActionType::CursorTransfer => Ok(InputAction::CursorTransfer(Slot::read(r)?)),
-      InputActionType::CycleBlueprintBookBackwards => Ok(InputAction::CycleBlueprintBookBackwards),
-      InputActionType::CycleBlueprintBookForwards => Ok(InputAction::CycleBlueprintBookForwards),
-      InputActionType::CycleClipboardBackwards => Ok(InputAction::CycleClipboardBackwards),
-      InputActionType::CycleClipboardForwards => Ok(InputAction::CycleClipboardForwards),
-      InputActionType::Deconstruct => Ok(InputAction::Deconstruct { area: SelectAreaData::read(r)? }),
-      InputActionType::DeleteBlueprintLibrary => Ok(InputAction::DeleteBlueprintLibrary),
-      InputActionType::DestroyOpenedItem => Ok(InputAction::DestroyOpenedItem),
-      InputActionType::DisconnectRollingStock => Ok(InputAction::DisconnectRollingStock),
-      InputActionType::DropItem => Ok(InputAction::DropItem(MapPosition::read(r)?)),
-      InputActionType::GameCreatedFromScenario => Ok(InputAction::GameCreatedFromScenario),
-      InputActionType::GuiCheckedStateChanged => Ok(InputAction::GuiCheckedStateChanged { gui_changed_data: GuiChangedData::read(r)?, }),
-      InputActionType::GuiClick => Ok(InputAction::GuiClick { gui_changed_data: GuiChangedData::read(r)?, }),
-      InputActionType::GuiConfirmed => Ok(InputAction::GuiConfirmed { gui_changed_data: GuiChangedData::read(r)?, }),
-      InputActionType::GuiLocationChanged => {
-        let gui_changed_data = GuiChangedData::read(r)?;
-        let x = r.read_i32()?;
-        let y = r.read_i32()?;
-        Ok(InputAction::GuiLocationChanged { gui_changed_data, x, y })
-      },
-      InputActionType::GuiSelectedTabChanged => {
-        let gui_changed_data = GuiChangedData::read(r)?;
-        let value = r.read_i32()?;
-        Ok(InputAction::GuiSelectedTabChanged { gui_changed_data, value })
-      },
-      InputActionType::GuiSelectionStateChanged => {
-        let gui_changed_data = GuiChangedData::read(r)?;
-        let value = r.read_i32()?;
-        Ok(InputAction::GuiSelectionStateChanged { gui_changed_data, value })
-      },
-      InputActionType::GuiSwitchStateChanged => {
-        let gui_changed_data = GuiChangedData::read(r)?;
-        let value = SwitchState::read(r)?;
-        Ok(InputAction::GuiSwitchStateChanged { gui_changed_data, value })
-      },
-      InputActionType::GuiTextChanged => {
-        let gui_changed_data = GuiChangedData::read(r)?;
-        let value = r.read_string()?;
-        Ok(InputAction::GuiTextChanged { gui_changed_data, value })
-      },
-      InputActionType::GuiValueChanged => {
-        let gui_changed_data = GuiChangedData::read(r)?;
-        let value = r.read_f64()?;
-        Ok(InputAction::GuiValueChanged { gui_changed_data, value })
-      },
-      InputActionType::InventorySplit => Ok(InputAction::InventorySplit(Slot::read(r)?)),
-      InputActionType::InventoryTransfer => Ok(InputAction::InventoryTransfer(Slot::read(r)?)),
-      InputActionType::LaunchRocket => Ok(InputAction::LaunchRocket),
-      InputActionType::MarketOffer => {
-        let slot_index = r.read_u32()?;
-        let count = r.read_u32()?;
-        Ok(InputAction::MarketOffer { slot_index, count, })
-      },
-      InputActionType::MoveOnZoom => {
-        let x = r.read_f64()?;
-        let y = r.read_f64()?;
-        Ok(InputAction::MoveOnZoom { x, y, })
-      },
-      InputActionType::MultiplayerInit => Ok(InputAction::MultiplayerInit),
-      InputActionType::Nothing => Ok(InputAction::Nothing),
-      InputActionType::OpenAchievementsGui => Ok(InputAction::OpenAchievementsGui),
-      InputActionType::OpenBlueprintLibraryGui => Ok(InputAction::OpenBlueprintLibraryGui),
-      InputActionType::OpenBonusGui => Ok(InputAction::OpenBonusGui),
-      InputActionType::OpenCharacterGui => Ok(InputAction::OpenCharacterGui),
-      InputActionType::OpenEquipment => Ok(InputAction::OpenEquipment(EquipmentData::read(r)?)),
-      InputActionType::OpenGui => Ok(InputAction::OpenGui),
-      InputActionType::OpenItem => Ok(InputAction::OpenItem(Slot::read(r)?)),
-      InputActionType::OpenKillsGui => Ok(InputAction::OpenKillsGui),
-      InputActionType::OpenLogisticGui => Ok(InputAction::OpenLogisticGui),
-      InputActionType::OpenModItem => Ok(InputAction::OpenModItem(Slot::read(r)?)),
-      InputActionType::OpenProductionGui => Ok(InputAction::OpenProductionGui),
-      InputActionType::OpenTechnologyGui => Ok(InputAction::OpenTechnologyGui),
-      InputActionType::OpenTrainsGui => Ok(InputAction::OpenTrainsGui),
-      InputActionType::OpenTutorialsGui => Ok(InputAction::OpenTutorialsGui),
-      InputActionType::PasteEntitySettings => Ok(InputAction::PasteEntitySettings),
-      InputActionType::PlaceEquipment => Ok(InputAction::PlaceEquipment(EquipmentData::read(r)?)),
-      InputActionType::ResetAssemblingMachine => Ok(InputAction::ResetAssemblingMachine),
-      InputActionType::SelectBlueprintEntities => Ok(InputAction::SelectBlueprintEntities { area: SelectAreaData::read(r)? }),
-      InputActionType::SelectedEntityChanged => Ok(InputAction::SelectedEntityChanged(MapPosition::read(r)?)),
-      InputActionType::SelectedEntityCleared => Ok(InputAction::SelectedEntityCleared),
-      InputActionType::SelectNextValidGun => Ok(InputAction::SelectNextValidGun),
-      InputActionType::SetCircuitCondition => {
-        let circuit_index = r.read_u8()?;
-        let comparison = Comparison::read(r)?;
-        let first_signal_id = SignalId::read(r)?;
-        let second_signal_id = SignalIdOrConstant::read(r)?;
-        Ok(InputAction::SetCircuitCondition { circuit_index, comparison, first_signal_id, second_signal_id, })
-      },
-      InputActionType::SetCircuitModeOfOperation => {
-        let mode_of_operation = r.read_u8()?;
-        let enabled = r.read_bool()?;
-        Ok(InputAction::SetCircuitModeOfOperation { mode_of_operation, enabled, })
-      },
-      InputActionType::SetFilter => {
-        let slot = Slot::read(r)?;
-        let item = Item::read(r)?;
-        Ok(InputAction::SetFilter { slot, item, })
-      },
-      InputActionType::SetInventoryBar => Ok(InputAction::SetInventoryBar(Slot::read(r)?)),
-      InputActionType::SetLogisticFilterItem => {
-        let item = Item::read(r)?;
-        let filter_index = r.read_u16()?;
-        let count = r.read_u32()?;
-        Ok(InputAction::SetLogisticFilterItem { item, filter_index, count, })
-      },
-      InputActionType::SetLogisticFilterSignal => {
-        let signal = SignalId::read(r)?;
-        let filter_index = r.read_u16()?;
-        let count = r.read_u32()?;
-        Ok(InputAction::SetLogisticFilterSignal { signal, filter_index, count, })
-      },
-      InputActionType::SetSignal => {
-        let signal_id = SignalId::read(r)?;
-        let signal_index = r.read_u16()?;
-        Ok(InputAction::SetSignal { signal_id, signal_index, })
-      },
-      InputActionType::SetupAssemblingMachine => Ok(InputAction::SetupAssemblingMachine(Recipe::read(r)?)),
-      InputActionType::SingleplayerInit => Ok(InputAction::SingleplayerInit),
-      InputActionType::SmartPipette => Ok(InputAction::SmartPipette(SmartPipetteData::read(r)?)),
-      InputActionType::StackSplit => Ok(InputAction::StackSplit(Slot::read(r)?)),
-      InputActionType::StackTransfer => Ok(InputAction::StackTransfer(Slot::read(r)?)),
-      InputActionType::StartRepair => Ok(InputAction::StartRepair { pos: MapPosition::read(r)?, }),
-      InputActionType::StartResearch => Ok(InputAction::StartResearch { technology: Technology::read(r)?, }),
-      InputActionType::StartWalking => Ok(InputAction::StartWalking(Direction::read(r)?)),
-      InputActionType::StopBuildingByMoving => Ok(InputAction::StopBuildingByMoving),
-      InputActionType::StopMining => Ok(InputAction::StopMining),
-      InputActionType::StopMovementInTheNextTick => Ok(InputAction::StopMovementInTheNextTick),
-      InputActionType::StopRepair => Ok(InputAction::StopRepair),
-      InputActionType::StopWalking => Ok(InputAction::StopWalking),
-      InputActionType::SwitchToRenameStopGui => Ok(InputAction::SwitchToRenameStopGui),
-      InputActionType::TakeEquipment => Ok(InputAction::TakeEquipment(EquipmentData::read(r)?)),
-      InputActionType::ToggleDeconstructionItemEntityFilterMode => Ok(InputAction::ToggleDeconstructionItemEntityFilterMode),
-      InputActionType::ToggleDeconstructionItemTileFilterMode => Ok(InputAction::ToggleDeconstructionItemTileFilterMode),
-      InputActionType::ToggleDriving => Ok(InputAction::ToggleDriving),
-      InputActionType::ToggleEnableVehicleLogisticsWhileMoving => Ok(InputAction::ToggleEnableVehicleLogisticsWhileMoving),
-      InputActionType::ToggleEquipmentMovementBonus => Ok(InputAction::ToggleEquipmentMovementBonus),
-      InputActionType::ToggleMapEditor => Ok(InputAction::ToggleMapEditor),
-      InputActionType::TogglePersonalRoboport => Ok(InputAction::TogglePersonalRoboport),
-      InputActionType::ToggleShowEntityInfo => Ok(InputAction::ToggleShowEntityInfo),
-      InputActionType::Undo => Ok(InputAction::Undo),
-      InputActionType::UseItem => Ok(InputAction::UseItem { pos: MapPosition::read(r)?, }),
-      InputActionType::UseArtilleryRemote => Ok(InputAction::UseArtilleryRemote { pos: MapPosition::read(r)?, }),
-      InputActionType::Upgrade => Ok(InputAction::Upgrade { area: SelectAreaData::read(r)? }),
-      InputActionType::UpgradeOpenedBlueprint => Ok(InputAction::UpgradeOpenedBlueprint),
-      InputActionType::WireDragging => Ok(InputAction::WireDragging(MapPosition::read(r)?)),
-      InputActionType::WriteToConsole => Ok(InputAction::WriteToConsole { value: r.read_string()?, }),
-
-
-
-
-      InputActionType::QuickBarSetSelectedPage => {
-        let qbar = r.read_u8()?; // top or bottom quickbar
-        let set = r.read_u8()?; // 0-9
-        println!("ignoring QuickBarSetSelectedPage setting bar {} to set {}!", qbar, set);
-        Ok(InputAction::Nothing)
-      }
-      InputActionType::ChangePickingState => {
-        let val1 = r.read_u8()?;
-        println!("ignoring ChangePickingState {}!", val1);
-        Ok(InputAction::Nothing)
-      },
-      InputActionType::QuickBarSetSlot => {
-        let slot = r.read_u16()?; // fixed point number
-        let source_slot = Slot::read(r)?;
-        Ok(InputAction::QuickBarSetSlot { slot,  source_slot, })
-      },
-      InputActionType::DisplayResolutionChanged => {
-        let x = r.read_u32()?; // ChunkPosition
-        let y = r.read_u32()?;
-        println!("ignoring DisplayResolutionChanged ({}, {})!", x, y);
-        Ok(InputAction::Nothing)
-      },
-      InputActionType::DisplayScaleChanged => {
-        let scale = r.read_f64()?; // scale
-        println!("ignoring DisplayScaleChanged ({})!", scale);
-        Ok(InputAction::Nothing)
-      },
-      InputActionType::FastEntitySplit => Ok(InputAction::FastEntitySplit { dir: TransferDirection::from_u8(r.read_u8()?).unwrap() }),
-      InputActionType::FastEntityTransfer => Ok(InputAction::FastEntityTransfer { dir: TransferDirection::from_u8(r.read_u8()?).unwrap() }),
-      InputActionType::PlayerJoinGame => {
-        let player_id = r.read_opt_u16()?;
-        r.read_u16_assert(0)?;
-        r.read_u8_assert(1)?; // AllowedCommands
-        let name = r.read_string()?;
-        r.read_u8_assert(0)?;
-        r.read_u8_assert(1)?;
-        Ok(InputAction::PlayerJoinGame { player_id, name })
-      },
-      InputActionType::QuickBarPickSlot => {
-        let slot = r.read_u16()?;
-        r.read_u8_assert(0)?; // unknown boolean
-        r.read_u8_assert(0)?; // unknown boolean
-        Ok(InputAction::QuickBarPickSlot { slot, })
-      },
-      InputActionType::SelectedEntityChangedRelative => {
-        let y = r.read_i16()?;
-        let x = r.read_i16()?;
-        Ok(InputAction::SelectedEntityChangedRelative { x, y, })
-      },
-      InputActionType::SelectedEntityChangedVeryClose => {
-        let xy = r.read_u8()?;
-        let x = (xy >> 4) as i8 - 8;
-        let y = (xy & 0x0f) as i8 - 8;
-        Ok(InputAction::SelectedEntityChangedVeryClose { x, y, })
-      },
-      InputActionType::SelectedEntityChangedVeryClosePrecise => {
-        let y = r.read_i8()?;
-        let x = r.read_i8()?;
-        Ok(InputAction::SelectedEntityChangedVeryClosePrecise { x, y, })
-      },
-      InputActionType::UpdateBlueprintShelf => {
-        r.read_u16_assert(0)?; // player id?
-        r.read_u32_assert(1)?;
-        r.read_u32()?; // checksum
-        let unknown_count = r.read_opt_u32()?;
-        for _ in 0..unknown_count { r.read_u32()?; } // dump unknown values
-        let add_blueprint_record_data_count = r.read_opt_u32()?;
-        for _ in 0..add_blueprint_record_data_count { r.read_past_add_blueprint_record_data()?; }
-        let update_blueprint_data_count = r.read_opt_u32()?;
-        for _ in 0..update_blueprint_data_count { r.read_past_update_blueprint_data()?; }
-        println!("ignoring {} added and {} updated blueprints!", add_blueprint_record_data_count, update_blueprint_data_count);
-        Ok(InputAction::Nothing)
-      },
-      _ => Err(Error::custom(format!("Unsupported action type {:?}", action_type), action_type_pos)),
-    }
-  }
-  pub fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
-    match self {
-      InputAction::ActivateCopy => Ok(()),
-      InputAction::ActivateCut => Ok(()),
-      InputAction::ActivatePaste => Ok(()),
-      InputAction::AddTrainStation { name, pos, temporary, } => {
-        w.write_string(name)?;
-        pos.write(w)?;
-        w.write_bool(*temporary)
-      },
-      InputAction::AlternativeCopy { area } => area.write(w),
-      InputAction::AltSelectBlueprintEntities { area } => area.write(w),
-      InputAction::BeginMining => Ok(()),
-      InputAction::BeginMiningTerrain(pos) => pos.write(w),
-      InputAction::BuildItem(params) => params.write(w),
-      InputAction::CancelCraft { crafting_index, count, } => {
-        w.write_u16(*crafting_index)?;
-        w.write_u16(*count)
-      },
-      InputAction::CancelDropBlueprintRecord => Ok(()),
-      InputAction::CancelNewBlueprint => Ok(()),
-      InputAction::ChangeActiveItemGroupForCrafting { item_group, } => item_group.write(w),
-      InputAction::ChangeActiveItemGroupForFilters { item_group, } => item_group.write(w),
-      InputAction::ChangeRidingState(riding_state) => riding_state.write(w),
-      InputAction::ChangeShootingState(state) => state.write(w),
-      InputAction::ChangeTrainStopStation { new_name, } => w.write_string(new_name),
-      InputAction::CheckCRC(crc) => crc.write(w),
-      InputAction::CheckCRCHeuristic(crc) => crc.write(w),
-      InputAction::CleanCursorStack => Ok(()),
-      InputAction::CloseBlueprintRecord => Ok(()),
-      InputAction::CloseGui => Ok(()),
-      InputAction::ConnectRollingStock => Ok(()),
-      InputAction::Copy { area } => area.write(w),
-      InputAction::CopyEntitySettings => Ok(()),
-      InputAction::Craft(data) => data.write(w),
-      InputAction::CursorSplit(slot) => slot.write(w),
-      InputAction::CursorTransfer(slot) => slot.write(w),
-      InputAction::CycleBlueprintBookBackwards => Ok(()),
-      InputAction::CycleBlueprintBookForwards => Ok(()),
-      InputAction::CycleClipboardBackwards => Ok(()),
-      InputAction::CycleClipboardForwards => Ok(()),
-      InputAction::Deconstruct { area } => area.write(w),
-      InputAction::DeleteBlueprintLibrary => Ok(()),
-      InputAction::DestroyOpenedItem => Ok(()),
-      InputAction::DisconnectRollingStock => Ok(()),
-      InputAction::DropItem(pos) => pos.write(w),
-      InputAction::GameCreatedFromScenario => Ok(()),
-      InputAction::GuiCheckedStateChanged { gui_changed_data } => gui_changed_data.write(w),
-      InputAction::GuiClick { gui_changed_data, } => gui_changed_data.write(w),
-      InputAction::GuiConfirmed { gui_changed_data, } => gui_changed_data.write(w),
-      InputAction::GuiLocationChanged { gui_changed_data, x, y } => {
-        gui_changed_data.write(w)?;
-        w.write_i32(*x)?;
-        w.write_i32(*y)
-      },
-      InputAction::GuiSelectedTabChanged { gui_changed_data, value } => {
-        gui_changed_data.write(w)?;
-        w.write_i32(*value)
-      },
-      InputAction::GuiSelectionStateChanged { gui_changed_data, value } => {
-        gui_changed_data.write(w)?;
-        w.write_i32(*value)
-      },
-      InputAction::GuiSwitchStateChanged { gui_changed_data, value } => {
-        gui_changed_data.write(w)?;
-        value.write(w)
-      },
-      InputAction::GuiTextChanged { gui_changed_data, value } => {
-        gui_changed_data.write(w)?;
-        w.write_string(value)
-      },
-      InputAction::GuiValueChanged { gui_changed_data, value } => {
-        gui_changed_data.write(w)?;
-        w.write_f64(*value)
-      },
-      InputAction::InventorySplit(slot) => slot.write(w),
-      InputAction::InventoryTransfer(slot) => slot.write(w),
-      InputAction::LaunchRocket => Ok(()),
-      InputAction::MarketOffer { slot_index, count, } => {
-        w.write_u32(*slot_index)?;
-        w.write_u32(*count)
-      },
-      InputAction::MoveOnZoom { x, y, } => {
-        w.write_f64(*x)?;
-        w.write_f64(*y)
-      },
-      InputAction::MultiplayerInit => Ok(()),
-      InputAction::Nothing => Ok(()),
-      InputAction::OpenAchievementsGui => Ok(()),
-      InputAction::OpenBlueprintLibraryGui => Ok(()),
-      InputAction::OpenBonusGui => Ok(()),
-      InputAction::OpenCharacterGui => Ok(()),
-      InputAction::OpenEquipment(equipment) => equipment.write(w),
-      InputAction::OpenGui => Ok(()),
-      InputAction::OpenItem(slot) => slot.write(w),
-      InputAction::OpenKillsGui => Ok(()),
-      InputAction::OpenLogisticGui => Ok(()),
-      InputAction::OpenModItem(slot) => slot.write(w),
-      InputAction::OpenProductionGui => Ok(()),
-      InputAction::OpenTechnologyGui => Ok(()),
-      InputAction::OpenTrainsGui => Ok(()),
-      InputAction::OpenTutorialsGui => Ok(()),
-      InputAction::PasteEntitySettings => Ok(()),
-      InputAction::PlaceEquipment(equipment) => equipment.write(w),
-      InputAction::ResetAssemblingMachine => Ok(()),
-      InputAction::SelectBlueprintEntities { area } => area.write(w),
-      InputAction::SelectedEntityChanged(pos) => pos.write(w),
-      InputAction::SelectedEntityCleared => Ok(()),
-      InputAction::SelectNextValidGun => Ok(()),
-      InputAction::SetCircuitCondition { circuit_index, comparison, first_signal_id, second_signal_id, } => {
-        w.write_u8(*circuit_index)?;
-        comparison.write(w)?;
-        first_signal_id.write(w)?;
-        second_signal_id.write(w)
-      },
-      InputAction::SetCircuitModeOfOperation { mode_of_operation, enabled, } => {
-        w.write_u8(*mode_of_operation)?;
-        w.write_bool(*enabled)
-      },
-      InputAction::SetFilter { slot, item, } => {
-        slot.write(w)?;
-        item.write(w)
-      },
-      InputAction::SetInventoryBar(slot) => slot.write(w),
-      InputAction::SetLogisticFilterItem { item, filter_index, count, } => {
-        item.write(w)?;
-        w.write_u16(*filter_index)?;
-        w.write_u32(*count)
-      },
-      InputAction::SetLogisticFilterSignal { signal, filter_index, count, } => {
-        signal.write(w)?;
-        w.write_u16(*filter_index)?;
-        w.write_u32(*count)
-      },
-      InputAction::SetSignal { signal_id, signal_index, } => {
-        signal_id.write(w)?;
-        w.write_u16(*signal_index)
-      },
-      InputAction::SetupAssemblingMachine(recipe) => recipe.write(w),
-      InputAction::SingleplayerInit => Ok(()),
-      InputAction::SmartPipette(data) => data.write(w),
-      InputAction::StackSplit(slot) => slot.write(w),
-      InputAction::StackTransfer(slot) => slot.write(w),
-      InputAction::StartRepair { pos, } => pos.write(w),
-      InputAction::StartResearch { technology, } => technology.write(w),
-      InputAction::StartWalking(direction) => direction.write(w),
-      InputAction::StopBuildingByMoving => Ok(()),
-      InputAction::StopMining => Ok(()),
-      InputAction::StopMovementInTheNextTick => Ok(()),
-      InputAction::StopRepair => Ok(()),
-      InputAction::StopWalking => Ok(()),
-      InputAction::SwitchToRenameStopGui => Ok(()),
-      InputAction::TakeEquipment(equipment) => equipment.write(w),
-      InputAction::ToggleDeconstructionItemEntityFilterMode => Ok(()),
-      InputAction::ToggleDeconstructionItemTileFilterMode => Ok(()),
-      InputAction::ToggleDriving => Ok(()),
-      InputAction::ToggleEnableVehicleLogisticsWhileMoving => Ok(()),
-      InputAction::ToggleEquipmentMovementBonus => Ok(()),
-      InputAction::ToggleMapEditor => Ok(()),
-      InputAction::TogglePersonalRoboport => Ok(()),
-      InputAction::ToggleShowEntityInfo => Ok(()),
-      InputAction::Undo => Ok(()),
-      InputAction::UseItem { pos, } => pos.write(w),
-      InputAction::UseArtilleryRemote { pos, } => pos.write(w),
-      InputAction::Upgrade { area } => area.write(w),
-      InputAction::UpgradeOpenedBlueprint => Ok(()),
-      InputAction::WireDragging(pos) => pos.write(w),
-      InputAction::WriteToConsole { value, } => w.write_string(value),
-
-
-
-      InputAction::FastEntityTransfer { dir, } => w.write_u8(dir.to_u8().unwrap()),
-      InputAction::FastEntitySplit { dir, } => w.write_u8(dir.to_u8().unwrap()),
-      InputAction::PlayerJoinGame { player_id, name, } => {
-        w.write_opt_u16(*player_id)?;
-        w.write_u16(0)?;
-        w.write_u8(1)?; // AllowedCommands
-        w.write_string(name)?;
-        w.write_u8(0)?;
-        w.write_u8(1)
-      },
-      &InputAction::QuickBarPickSlot { slot, } => {
-        w.write_u16(slot)?;
-        w.write_u8(0)?;
-        w.write_u8(0)
-      },
-      InputAction::QuickBarSetSlot { slot,  source_slot, } => {
-        w.write_u16(*slot)?;
-       source_slot.write(w)
-      },
-      &InputAction::SelectedEntityChangedRelative { x, y, } => {
-        w.write_i16(y)?;
-        w.write_i16(x)
-      },
-      &InputAction::SelectedEntityChangedVeryClose { x, y, } => {
-        assert!(x >= -8 && x < 8 && y >= -8 && y < 8);
-        let xy = (((x + 8) as u8) << 4) | ((y + 8) as u8);
-        w.write_u8(xy)
-      },
-      &InputAction::SelectedEntityChangedVeryClosePrecise { x, y, } => {
-        w.write_i8(y)?;
-        w.write_i8(x)
-      },
-    }
-  }
-  pub fn action_type(&self) -> InputActionType {
-    match self {
-      InputAction::ActivateCopy => InputActionType::ActivateCopy,
-      InputAction::ActivateCut => InputActionType::ActivateCut,
-      InputAction::ActivatePaste => InputActionType::ActivatePaste,
-      InputAction::AddTrainStation { .. } => InputActionType::AddTrainStation,
-      InputAction::AlternativeCopy { .. } => InputActionType::AlternativeCopy,
-      InputAction::AltSelectBlueprintEntities { .. } => InputActionType::AltSelectBlueprintEntities,
-      InputAction::BeginMining => InputActionType::BeginMining,
-      InputAction::BeginMiningTerrain { .. } => InputActionType::BeginMiningTerrain,
-      InputAction::BuildItem { .. } => InputActionType::BuildItem,
-      InputAction::CancelCraft { .. } => InputActionType::CancelCraft,
-      InputAction::CancelDropBlueprintRecord => InputActionType::CancelDropBlueprintRecord,
-      InputAction::CancelNewBlueprint => InputActionType::CancelNewBlueprint,
-      InputAction::ChangeActiveItemGroupForCrafting { .. } => InputActionType::ChangeActiveItemGroupForCrafting,
-      InputAction::ChangeActiveItemGroupForFilters { .. } => InputActionType::ChangeActiveItemGroupForFilters,
-      InputAction::ChangeRidingState { .. } => InputActionType::ChangeRidingState,
-      InputAction::ChangeShootingState { .. } => InputActionType::ChangeShootingState,
-      InputAction::ChangeTrainStopStation { .. } => InputActionType::ChangeTrainStopStation,
-      InputAction::CheckCRC { .. } => InputActionType::CheckCRC,
-      InputAction::CheckCRCHeuristic { .. } => InputActionType::CheckCRCHeuristic,
-      InputAction::CleanCursorStack => InputActionType::CleanCursorStack,
-      InputAction::CloseBlueprintRecord => InputActionType::CloseBlueprintRecord,
-      InputAction::CloseGui => InputActionType::CloseGui,
-      InputAction::ConnectRollingStock => InputActionType::ConnectRollingStock,
-      InputAction::Copy { .. } => InputActionType::Copy,
-      InputAction::CopyEntitySettings => InputActionType::CopyEntitySettings,
-      InputAction::Craft { .. } => InputActionType::Craft,
-      InputAction::CursorSplit { .. } => InputActionType::CursorSplit,
-      InputAction::CursorTransfer { .. } => InputActionType::CursorTransfer,
-      InputAction::CycleBlueprintBookBackwards => InputActionType::CycleBlueprintBookBackwards,
-      InputAction::CycleBlueprintBookForwards => InputActionType::CycleBlueprintBookForwards,
-      InputAction::CycleClipboardBackwards => InputActionType::CycleClipboardBackwards,
-      InputAction::CycleClipboardForwards => InputActionType::CycleClipboardForwards,
-      InputAction::Deconstruct { .. } => InputActionType::Deconstruct,
-      InputAction::DeleteBlueprintLibrary => InputActionType::DeleteBlueprintLibrary,
-      InputAction::DestroyOpenedItem => InputActionType::DestroyOpenedItem,
-      InputAction::DisconnectRollingStock => InputActionType::DisconnectRollingStock,
-      InputAction::DropItem { .. } => InputActionType::DropItem,
-      InputAction::GameCreatedFromScenario => InputActionType::GameCreatedFromScenario,
-      InputAction::GuiCheckedStateChanged { .. } => InputActionType::GuiCheckedStateChanged,
-      InputAction::GuiClick { .. } => InputActionType::GuiClick,
-      InputAction::GuiConfirmed { .. } => InputActionType::GuiConfirmed,
-      InputAction::GuiLocationChanged { .. } => InputActionType::GuiLocationChanged,
-      InputAction::GuiSelectedTabChanged { .. } => InputActionType::GuiSelectedTabChanged,
-      InputAction::GuiSelectionStateChanged { .. } => InputActionType::GuiSelectionStateChanged,
-      InputAction::GuiSwitchStateChanged { .. } => InputActionType::GuiSwitchStateChanged,
-      InputAction::GuiTextChanged { .. } => InputActionType::GuiTextChanged,
-      InputAction::GuiValueChanged { .. } => InputActionType::GuiValueChanged,
-      InputAction::InventorySplit { .. } => InputActionType::InventorySplit,
-      InputAction::InventoryTransfer { .. } => InputActionType::InventoryTransfer,
-      InputAction::LaunchRocket => InputActionType::LaunchRocket,
-      InputAction::MarketOffer { .. } => InputActionType::MarketOffer,
-      InputAction::MoveOnZoom { .. } => InputActionType::MoveOnZoom,
-      InputAction::MultiplayerInit => InputActionType::MultiplayerInit,
-      InputAction::Nothing => InputActionType::Nothing,
-      InputAction::OpenAchievementsGui => InputActionType::OpenAchievementsGui,
-      InputAction::OpenBlueprintLibraryGui => InputActionType::OpenBlueprintLibraryGui,
-      InputAction::OpenBonusGui => InputActionType::OpenBonusGui,
-      InputAction::OpenCharacterGui => InputActionType::OpenCharacterGui,
-      InputAction::OpenEquipment { .. } => InputActionType::OpenEquipment,
-      InputAction::OpenGui => InputActionType::OpenGui,
-      InputAction::OpenItem { .. } => InputActionType::OpenItem,
-      InputAction::OpenKillsGui => InputActionType::OpenKillsGui,
-      InputAction::OpenLogisticGui => InputActionType::OpenLogisticGui,
-      InputAction::OpenModItem { .. } => InputActionType::OpenModItem,
-      InputAction::OpenProductionGui => InputActionType::OpenProductionGui,
-      InputAction::OpenTechnologyGui => InputActionType::OpenTechnologyGui,
-      InputAction::OpenTrainsGui => InputActionType::OpenTrainsGui,
-      InputAction::OpenTutorialsGui => InputActionType::OpenTutorialsGui,
-      InputAction::PasteEntitySettings => InputActionType::PasteEntitySettings,
-      InputAction::PlaceEquipment { .. } => InputActionType::PlaceEquipment,
-      InputAction::ResetAssemblingMachine => InputActionType::ResetAssemblingMachine,
-      InputAction::SelectBlueprintEntities { .. } => InputActionType::SelectBlueprintEntities,
-      InputAction::SelectedEntityChanged { .. } => InputActionType::SelectedEntityChanged,
-      InputAction::SelectedEntityCleared => InputActionType::SelectedEntityCleared,
-      InputAction::SelectNextValidGun => InputActionType::SelectNextValidGun,
-      InputAction::SetCircuitCondition { .. } => InputActionType::SetCircuitCondition,
-      InputAction::SetCircuitModeOfOperation { .. } => InputActionType::SetCircuitModeOfOperation,
-      InputAction::SetFilter { .. } => InputActionType::SetFilter,
-      InputAction::SetInventoryBar { .. } => InputActionType::SetInventoryBar,
-      InputAction::SetLogisticFilterItem { .. } => InputActionType::SetLogisticFilterItem,
-      InputAction::SetLogisticFilterSignal { .. } => InputActionType::SetLogisticFilterSignal,
-      InputAction::SetSignal { .. } => InputActionType::SetSignal,
-      InputAction::SetupAssemblingMachine { .. } => InputActionType::SetupAssemblingMachine,
-      InputAction::SingleplayerInit => InputActionType::SingleplayerInit,
-      InputAction::SmartPipette { .. } => InputActionType::SmartPipette,
-      InputAction::StackSplit { .. } => InputActionType::StackSplit,
-      InputAction::StackTransfer { .. } => InputActionType::StackTransfer,
-      InputAction::StartRepair { .. } => InputActionType::StartRepair,
-      InputAction::StartResearch { .. } => InputActionType::StartResearch,
-      InputAction::StartWalking { .. } => InputActionType::StartWalking,
-      InputAction::StopBuildingByMoving => InputActionType::StopBuildingByMoving,
-      InputAction::StopMining => InputActionType::StopMining,
-      InputAction::StopMovementInTheNextTick => InputActionType::StopMovementInTheNextTick,
-      InputAction::StopRepair => InputActionType::StopRepair,
-      InputAction::StopWalking => InputActionType::StopWalking,
-      InputAction::SwitchToRenameStopGui => InputActionType::SwitchToRenameStopGui,
-      InputAction::TakeEquipment { .. } => InputActionType::TakeEquipment,
-      InputAction::ToggleDeconstructionItemEntityFilterMode => InputActionType::ToggleDeconstructionItemEntityFilterMode,
-      InputAction::ToggleDeconstructionItemTileFilterMode => InputActionType::ToggleDeconstructionItemTileFilterMode,
-      InputAction::ToggleDriving => InputActionType::ToggleDriving,
-      InputAction::ToggleEnableVehicleLogisticsWhileMoving => InputActionType::ToggleEnableVehicleLogisticsWhileMoving,
-      InputAction::ToggleEquipmentMovementBonus => InputActionType::ToggleEquipmentMovementBonus,
-      InputAction::ToggleMapEditor => InputActionType::ToggleMapEditor,
-      InputAction::TogglePersonalRoboport => InputActionType::TogglePersonalRoboport,
-      InputAction::ToggleShowEntityInfo => InputActionType::ToggleShowEntityInfo,
-      InputAction::Undo => InputActionType::Undo,
-      InputAction::Upgrade { .. } => InputActionType::Upgrade,
-      InputAction::UpgradeOpenedBlueprint => InputActionType::UpgradeOpenedBlueprint,
-      InputAction::UseArtilleryRemote { .. } => InputActionType::UseArtilleryRemote,
-      InputAction::UseItem { .. } => InputActionType::UseItem,
-      InputAction::WireDragging { .. } => InputActionType::WireDragging,
-      InputAction::WriteToConsole { .. } => InputActionType::WriteToConsole,
-
-
-
-      InputAction::FastEntitySplit { .. } => InputActionType::FastEntitySplit,
-      InputAction::FastEntityTransfer { .. } => InputActionType::FastEntityTransfer,
-      InputAction::PlayerJoinGame { .. } => InputActionType::PlayerJoinGame,
-      InputAction::QuickBarPickSlot { .. } => InputActionType::QuickBarPickSlot,
-      InputAction::QuickBarSetSlot { .. } => InputActionType::QuickBarSetSlot,
-      InputAction::SelectedEntityChangedRelative { .. } => InputActionType::SelectedEntityChangedRelative,
-      InputAction::SelectedEntityChangedVeryClose { .. } => InputActionType::SelectedEntityChangedVeryClose,
-      InputAction::SelectedEntityChangedVeryClosePrecise { .. } => InputActionType::SelectedEntityChangedVeryClosePrecise,
-    }
-  }
+  UseItem(MapPosition),
+  UseArtilleryRemote(MapPosition),
+  SetInventoryBar(Slot),
+  ChangeActiveItemGroupForFilters(ItemGroup),
+  MoveOnZoom(Vector),
+  StartRepair(MapPosition),
+  Deconstruct(SelectAreaData),
+  Upgrade(SelectAreaData),
+  Copy(SelectAreaData),
+  AlternativeCopy(SelectAreaData),
+  SelectBlueprintEntities(SelectAreaData),
+  AltSelectBlueprintEntities(SelectAreaData),
+  SetupBlueprint,
+  SetupSingleBlueprintRecord,
+  SetSingleBlueprintRecordIcon,
+  OpenBlueprintRecord,
+  CloseBlueprintBook,
+  ChangeSingleBlueprintRecordLabel,
+  GrabBlueprintRecord,
+  DropBlueprintRecord,
+  DeleteBlueprintRecord,
+  CreateBlueprintLike,
+  CreateBlueprintLikeStackTransfer,
+  UpdateBlueprintShelf(UpdateBlueprintShelfData),
+  TransferBlueprint,
+  TransferBlueprintImmediately,
+  ChangeBlueprintBookRecordLabel,
+  RemoveCables,
+  ExportBlueprint,
+  ImportBlueprint,
+  PlayerJoinGame(PlayerJoinGameData),
+  CancelDeconstruct,
+  CancelUpgrade,
+  ChangeArithmeticCombinatorParameters,
+  ChangeDeciderCombinatorParameters,
+  ChangeProgrammableSpeakerParameters,
+  ChangeProgrammableSpeakerAlertParameters,
+  ChangeProgrammableSpeakerCircuitParameters,
+  BuildTerrain,
+  ChangeTrainWaitCondition,
+  ChangeTrainWaitConditionData,
+  CustomInput,
+  ChangeItemLabel,
+  BuildRail,
+  CancelResearch,
+  SelectArea,
+  AltSelectArea,
+  ServerCommand,
+  ClearSelectedBlueprint,
+  ClearSelectedDeconstructionItem,
+  ClearSelectedUpgradeItem,
+  SetLogisticTrashFilterItem,
+  SetInfinityContainerFilterItem,
+  SetInfinityPipeFilter,
+  ModSettingsChanged,
+  SetEntityEnergyProperty,
+  EditCustomTag,
+  EditPermissionGroup,
+  ImportBlueprintString,
+  ImportPermissionsString,
+  ReloadScript,
+  ReloadScriptDataTooLarge,
+  GuiElemChanged,
+  BlueprintTransferQueueUpdate,
+  DragTrainSchedule,
+  DragTrainWaitCondition,
+  SelectItem,
+  SelectEntitySlot,
+  SelectTileSlot,
+  SelectMapperSlot,
+  DisplayResolutionChanged(PixelPosition),
+  QuickBarSetSlot(QuickBarSetSlotParameters),
+  QuickBarPickSlot(QuickBarPickSlotParameters),
+  QuickBarSetSelectedPage(QuickBarSetSelectedPageParameters),
+  PlayerLeaveGame,
+  MapEditorAction,
+  PutSpecialItemInMap,
+  ChangeMultiplayerConfig,
+  AdminAction,
+  LuaShortcut,
+  TranslateString,
+  ChangePickingState(u8),
+  SelectedEntityChangedVeryClose(SelectedEntityChangedVeryCloseData),
+  SelectedEntityChangedVeryClosePrecise(SelectedEntityChangedVeryClosePreciseData),
+  SelectedEntityChangedRelative(SelectedEntityChangedRelativeData),
+  SelectedEntityChangedBasedOnUnitNumber(u32),
+  SetAutosortInventory,
+  SetAutoLaunchRocket,
+  SwitchConstantCombinatorState,
+  SwitchPowerSwitchState,
+  SwitchInserterFilterModeState,
+  SwitchConnectToLogisticNetwork,
+  SetBehaviorMode,
+  FastEntityTransfer(TransferDirection),
+  RotateEntity,
+  FastEntitySplit(TransferDirection),
+  SetTrainStopped,
+  ChangeControllerSpeed,
+  SetAllowCommands,
+  SetResearchFinishedStopsGame,
+  SetInserterMaxStackSize,
+  OpenTrainGui,
+  SetEntityColor,
+  SetDeconstructionItemTreesAndRocksOnly,
+  SetDeconstructionItemTileSelectionMode,
+  DropToBlueprintBook,
+  DeleteCustomTag,
+  DeletePermissionGroup,
+  AddPermissionGroup,
+  SetInfinityContainerRemoveUnfilteredItems,
+  SetCarWeaponsControl,
+  SetRequestFromBuffers,
+  ChangeActiveQuickBar,
+  OpenPermissionsGui,
+  DisplayScaleChanged(f64),
+  SetSplitterPriority,
+  GrabInternalBlueprintFromText,
+  SetHeatInterfaceTemperature,
+  SetHeatInterfaceMode,
+  OpenTrainStationGui,
+  RemoveTrainStation,
+  GoToTrainStation,
+  RenderModeChanged,
 }

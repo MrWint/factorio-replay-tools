@@ -38,6 +38,14 @@ pub enum EquipmentDataType {
   Open = 5,
 }
 
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU8)]
+pub enum ForceId {
+  Player = 1,
+  Enemy = 2,
+  Neutral = 3,
+}
+
+
 // Source: defines.direction
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU16)]
 pub enum MouseButton {
@@ -1434,7 +1442,6 @@ pub enum InputActionType {
   SetupAssemblingMachine = 0x46,
   SelectedEntityChanged = 0x47,
   SmartPipette = 0x48,
-
   StackSplit = 0x49,
   InventorySplit = 0x4a,
   CancelCraft = 0x4b,

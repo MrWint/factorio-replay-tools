@@ -7,13 +7,21 @@ use std::io::{BufRead, Seek, Write};
 pub use crate::error::{Error, Result};
 pub use crate::reader::Reader;
 pub use crate::writer::Writer;
-pub use factorio_serialize_derive::{ReadWriteStruct, ReadWriteEnumU8, ReadWriteEnumU16};
+pub use factorio_serialize_derive::{ReadWriteStruct, ReadWriteTaggedUnion, ReadWriteEnumU8, ReadWriteEnumU16};
 
 pub trait ReadWrite: Sized {
   fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self>;
   fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()>;
 }
 
+impl ReadWrite for i8 {
+  #[inline] fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> { r.read_i8() }
+  #[inline] fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> { w.write_i8(*self) }
+}
+impl ReadWrite for i16 {
+  #[inline] fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> { r.read_i16() }
+  #[inline] fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> { w.write_i16(*self) }
+}
 impl ReadWrite for i32 {
   #[inline] fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> { r.read_i32() }
   #[inline] fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> { w.write_i32(*self) }
@@ -35,10 +43,19 @@ impl ReadWrite for f32 {
   #[inline] fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> { r.read_f32() }
   #[inline] fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> { w.write_f32(*self) }
 }
+impl ReadWrite for f64 {
+  #[inline] fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> { r.read_f64() }
+  #[inline] fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> { w.write_f64(*self) }
+}
 
 impl ReadWrite for bool {
   #[inline] fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> { r.read_bool() }
   #[inline] fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> { w.write_bool(*self) }
+}
+
+impl ReadWrite for String {
+  #[inline] fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> { r.read_string() }
+  #[inline] fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> { w.write_string(self) }
 }
 
 impl<T: ReadWrite> ReadWrite for Vec<T> {

@@ -91,41 +91,6 @@ impl<R: BufRead + Seek> Reader<R> {
       Ok(value)
     }
   }
-  pub fn read_past_add_blueprint_record_data(&mut self) -> Result<()> { // AddBlueprintRecordData
-    self.read_u32()?;
-    for _ in 0..20 { self.read_u8()?; } // SHA1Digest
-    self.read_u16()?; // fixed point number
-    let is_book = self.read_u8()?;
-    let signal_id_count = self.read_opt_u32()?;
-    for _ in 0..signal_id_count { self.read_past_signal_id()?; }
-    self.read_string()?; // name
-    self.read_u32()?;
-    if is_book != 0 {
-      let blueprint_count = self.read_opt_u32()?;
-      for _ in 0..blueprint_count { self.read_past_single_record_data_in_book()?; }
-    }
-    Ok(())
-  }
-  pub fn read_past_single_record_data_in_book(&mut self) -> Result<()> { // SingleRecordDataInBook
-    self.read_u32()?;
-    self.read_u16()?; // fixed point number
-    for _ in 0..20 { self.read_u8()?; } // SHA1Digest
-    let signal_id_count = self.read_opt_u32()?;
-    for _ in 0..signal_id_count { self.read_past_signal_id()?; }
-    self.read_string()?; // name
-    Ok(())
-  }
-  pub fn read_past_update_blueprint_data(&mut self) -> Result<()> { // UpdateBlueprintData
-    self.read_u32()?;
-    for _ in 0..20 { self.read_u8()?; } // SHA1Digest
-    self.read_string()?; // name
-    Ok(())
-  }
-  fn read_past_signal_id(&mut self) -> Result<()> { // SignalID
-    self.read_u8()?; // some sort of type
-    self.read_u16()?; // fixed point number
-    Ok(())
-  }
 }
 
 
