@@ -25,6 +25,7 @@ pub enum Direction {
   SW = 5,
   W = 6,
   NW = 7,
+  None = 8,
 }
 
 // Source: disassembly ActionData::EquipmentData::Type
@@ -1367,7 +1368,7 @@ pub enum ItemGroup {
 
 // Version: 0.17.69
 // Extraction method: disassembly InputAction::actionTypeToString
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU8)]
 pub enum InputActionType {
   Nothing = 0x00,
   StopWalking = 0x01,
