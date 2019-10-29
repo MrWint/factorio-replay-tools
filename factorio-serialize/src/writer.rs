@@ -27,6 +27,7 @@ impl<W: Write + Seek> Writer<W> {
   #[inline] pub fn write_u8(&mut self, value: u8) -> Result<()> { self.writer.write_u8(value).map_err(|e| self.io_error(e)) }
   #[inline] pub fn write_u16(&mut self, value: u16) -> Result<()> { self.writer.write_u16::<LittleEndian>(value).map_err(|e| self.io_error(e)) }
   #[inline] pub fn write_u32(&mut self, value: u32) -> Result<()> { self.writer.write_u32::<LittleEndian>(value).map_err(|e| self.io_error(e)) }
+  #[inline] pub fn write_u64(&mut self, value: u64) -> Result<()> { self.writer.write_u64::<LittleEndian>(value).map_err(|e| self.io_error(e)) }
   #[inline] pub fn write_f32(&mut self, value: f32) -> Result<()> { self.writer.write_f32::<LittleEndian>(value).map_err(|e| self.io_error(e)) }
   #[inline] pub fn write_f64(&mut self, value: f64) -> Result<()> { self.writer.write_f64::<LittleEndian>(value).map_err(|e| self.io_error(e)) }
 

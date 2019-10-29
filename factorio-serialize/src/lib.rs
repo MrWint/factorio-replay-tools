@@ -39,6 +39,10 @@ impl ReadWrite for u32 {
   #[inline] fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> { r.read_u32() }
   #[inline] fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> { w.write_u32(*self) }
 }
+impl ReadWrite for u64 {
+  #[inline] fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> { r.read_u64() }
+  #[inline] fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> { w.write_u64(*self) }
+}
 impl ReadWrite for f32 {
   #[inline] fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> { r.read_f32() }
   #[inline] fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> { w.write_f32(*self) }

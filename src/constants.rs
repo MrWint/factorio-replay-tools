@@ -3,6 +3,50 @@ use enum_primitive_derive::Primitive;
 use factorio_serialize::{ReadWriteEnumU8, ReadWriteEnumU16};
 use num_traits::{FromPrimitive, ToPrimitive};
 
+
+// Source: disassembly AdminActionData::Type"
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU8)]
+pub enum AdminActionDataType {
+  None = 0,
+  Add = 1,
+  Kick = 2,
+  Ban = 3,
+  Unban = 4,
+  Promote = 5,
+  Demote = 6,
+  Purge = 7,
+  Mute = 8,
+  Unmute = 9,
+  Whitelist = 10,
+  UnWhitelist = 11,
+  ChangePermissionGroup = 12,
+  Delete = 13,
+}
+
+// Source: disassembly AllowedCommands::Enum"
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU8)]
+pub enum AllowedCommands {
+  True = 0,
+  False = 1,
+  AdminsOnly = 2,
+}
+
+// Source: disassembly ArithmeticCombinatorParameters::Operation
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU8)]
+pub enum ArithmeticCombinatorParametersOperation {
+  Multiply = 0,
+  Divide = 1,
+  Add = 2,
+  Subtract = 3,
+  Modulo = 4,
+  Power = 5,
+  LeftShift = 6,
+  RightShift = 7,
+  AND = 8,
+  OR = 9,
+  XOR = 10,
+}
+
 // Source: disassembly Comparison::Enum
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU8)]
 pub enum Comparison {
@@ -28,6 +72,43 @@ pub enum Direction {
   None = 8,
 }
 
+// Source: disassembly DisconnectReason::Enum
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU8)]
+pub enum DisconnectReason {
+  Quit = 0,
+  Dropped = 1,
+  Reconnect = 2,
+  WrongInput = 3,
+  DesyncLimitReached = 4,
+  CantKeepUp = 5,
+  AFK = 6,
+  Kicked = 7,
+  KickedAndDeleted = 8,
+  Banned = 9,
+  SwitchingServers = 10,
+}
+
+// Source: disassembly EditPermissionGroupType
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU8)]
+pub enum EditPermissionGroupType {
+  Nothing = 0,
+  AddPermission = 1,
+  RemovePermission = 2,
+  EnableAllPermissions = 3,
+  DisableAllPermissions = 4,
+  AddPlayer = 5,
+  RemovePlayer = 6,
+  EditGroupName = 7,
+}
+
+// Source: disassembly EnergyPropertyType
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU8)]
+pub enum EnergyPropertyType {
+  BufferSize = 0,
+  PowerProduction = 1,
+  PowerUsage = 2,
+}
+
 // Source: disassembly ActionData::EquipmentData::Type
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU8)]
 pub enum EquipmentDataType {
@@ -46,6 +127,44 @@ pub enum ForceId {
   Neutral = 3,
 }
 
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU8)]
+pub enum GameRenderMode {
+  Nothing = 0,
+  Game = 1,
+  Chart = 2,
+  ChartZoomedIn = 3,
+}
+
+// TransportBeltControlBehavior::ContentsReadMode and InserterControlBehavior::HandReadMode
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU8)]
+pub enum HandOrContentsReadMode {
+  PulseMode = 0,
+  HoldMode = 1,
+}
+
+// Source: disassembly InfinityFilter::Mode
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU8)]
+pub enum InfinityFilterMode {
+  KeepAtLeast = 0,
+  KeepAtMost = 1,
+  KeepExactly = 2,
+}
+
+// Source: disassembly Inserter::FilterMode"
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU8)]
+pub enum InserterFilterMode {
+  Whitelist = 0,
+  Blacklist = 1,
+}
+
+// Source: disassembly LocalisedString::Mode
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU8)]
+pub enum LocalisedStringMode {
+  Empty = 0,
+  Translation = 1,
+  Literal = 2,
+  LiteralTranslation = 3,
+}
 
 // Source: defines.direction
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU16)]
@@ -62,6 +181,13 @@ pub enum MouseButton {
   Button9 = 9,
   LeftAndRight = 10,
   All = 11,
+}
+
+// Source: defines.riding.acceleration
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU8)]
+pub enum RailBuildingMode {
+  Manual = 0,
+  Ghost = 1,
 }
 
 // Source: defines.riding.acceleration
@@ -123,6 +249,14 @@ pub enum SlotTarget {
   EquipmentGrid = 1,
 }
 
+// Source: disassembly enum Splitter::Priority
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU8)]
+pub enum SplitterPriority {
+  Left = 0,
+  None = 1,
+  Right = 2,
+}
+
 // Source: disassembly agui::SwitchState
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU8)]
 pub enum SwitchState {
@@ -131,10 +265,146 @@ pub enum SwitchState {
   None = 2,
 }
 
+// Source: disassembly ActionData::TrainWaitCondition::Action
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU8)]
+pub enum TrainWaitConditionAction {
+  Add = 0,
+  Remove = 1,
+  Toggle = 2,
+}
+
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU8)]
 pub enum TransferDirection {
   Out = 0,
   In = 1,
+}
+
+// Source: disassembly WaitCondition::ComparisonType
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU8)]
+pub enum WaitConditionComparisonType {
+  And = 0,
+  Or = 1,
+}
+
+// Source: disassembly WaitCondition::ConditionType
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU8)]
+pub enum WaitConditionType {
+  Time = 0,
+  Full = 1,
+  Empty = 2,
+  ItemCount = 3,
+  Circuit = 4,
+  Inactivity = 5,
+  RobotsInactive = 6,
+  FluidCount = 7,
+  PassengerPresent = 8,
+  PassengerNotPresent = 9,
+}
+
+// Version: 0.17.69
+// Alt method: use command in readme
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU16)]
+pub enum Achievement {
+  GettingOnTrack = 1,
+  EcoUnfriendly = 2,
+  TechManiac = 3,
+  SmokeMeAKipperIWillBeBackForBreakfast = 4,
+  ItStinksAndTheyDontLikeIt = 5,
+  AutomatedConstruction = 6,
+  YouAreDoingItRight = 7,
+  AutomatedCleanup = 8,
+  YouHaveGotAPackage = 9,
+  DeliveryService = 10,
+  TransFactorioExpress = 11,
+  WatchYourStep = 12,
+  Golem = 13,
+  GettingOnTrackLikeAPro = 14,
+  MassProduction1 = 15,
+  MassProduction2 = 16,
+  MassProduction3 = 17,
+  CircuitVeteran1 = 18,
+  CircuitVeteran2 = 19,
+  CircuitVeteran3 = 20,
+  ComputerAge1 = 21,
+  ComputerAge2 = 22,
+  ComputerAge3 = 23,
+  IronThrone1 = 24,
+  IronThrone2 = 25,
+  IronThrone3 = 26,
+  Solaris = 27,
+  Steamrolled = 28,
+  Pyromaniac = 29,
+  RunForrestRun = 30,
+  Minions = 31,
+  LazyBastard = 32,
+  SteamAllTheWay = 33,
+  RainingBullets = 34,
+  LogisticNetworkEmbargo = 35,
+  NoTimeForChitchat = 36,
+  ThereIsNoSpoon = 37,
+  SoLongAndThanksForAllTheFish = 38,
+}
+
+// Version: 0.17.69
+// Alt method: use command in readme
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU8)]
+pub enum Decorative {
+  BrownHairyGrass = 1,
+  GreenHairyGrass = 2,
+  BrownCarpetGrass = 3,
+  GreenCarpetGrass = 4,
+  GreenSmallGrass = 5,
+  GreenAsterisk = 6,
+  BrownAsteriskMini = 7,
+  GreenAsteriskMini = 8,
+  BrownAsterisk = 9,
+  RedAsterisk = 10,
+  DarkMudDecal = 11,
+  LightMudDecal = 12,
+  PubertyDecal = 13,
+  RedDesertDecal = 14,
+  SandDecal = 15,
+  SandDuneDecal = 16,
+  GreenPita = 17,
+  RedPita = 18,
+  GreenCroton = 19,
+  RedCroton = 20,
+  GreenPitaMini = 21,
+  BrownFluff = 22,
+  BrownFluffDry = 23,
+  GreenDesertBush = 24,
+  RedDesertBush = 25,
+  WhiteDesertBush = 26,
+  GarballoMiniDry = 27,
+  Garballo = 28,
+  GreenBushMini = 29,
+  Lichen = 30,
+  RockMedium = 31,
+  RockSmall = 32,
+  RockTiny = 33,
+  BigShipWreckGrass = 34,
+  SandRockMedium = 35,
+  SandRockSmall = 36,
+  SmallShipWreckGrass = 37,
+}
+
+// Version: 0.17.69
+// Alt method: use command in readme
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU16)]
+pub enum Equipment {
+  BatteryEquipment = 1,
+  BatteryMk2Equipment = 2,
+  DischargeDefenseEquipment = 3,
+  EnergyShieldEquipment = 4,
+  EnergyShieldMk2Equipment = 5,
+  ExoskeletonEquipment = 6,
+  FusionReactorEquipment = 7,
+  NightVisionEquipment = 8,
+  PersonalLaserDefenseEquipment = 9,
+  PersonalRoboportEquipment = 10,
+  PersonalRoboportMk2Equipment = 11,
+  SolarPanelEquipment = 12,
+  BeltImmunityEquipment = 13,
 }
 
 // Version: 0.17.69
@@ -1482,8 +1752,6 @@ pub enum InputActionType {
   AlternativeCopy = 0x6d,
   SelectBlueprintEntities = 0x6e,
   AltSelectBlueprintEntities = 0x6f,
-
-
   SetupBlueprint = 0x70,
   SetupSingleBlueprintRecord = 0x71,
   SetSingleBlueprintRecordIcon = 0x72,

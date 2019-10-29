@@ -8,11 +8,35 @@ RNG manipulation: level.dat at 0x3a0 (with level name length 12) stores RNG seed
 
 /c game.write_file("recipes.dump", serpent.block(game.player.force.recipes));
 
+Dump achievements:
+/c local i = 1
+game.write_file("achievements.dump", "")
+for _, achievement in pairs(game.achievement_prototypes) do
+  game.write_file("achievements.dump", achievement.name .. " = " .. i .. ",\n", true)
+  i = i + 1
+end
+
+Dump decoratives:
+/c local i = 1
+game.write_file("decoratives.dump", "")
+for _, decorative in pairs(game.decorative_prototypes) do
+  game.write_file("decoratives.dump", decorative.name .. " = " .. i .. ",\n", true)
+  i = i + 1
+end
+
 Dump entities:
 /c local i = 1
 game.write_file("entities.dump", "")
 for _, entity in pairs(game.entity_prototypes) do
   game.write_file("entities.dump", entity.name .. " = " .. i .. ",\n", true)
+  i = i + 1
+end
+
+Dump equipment:
+/c local i = 1
+game.write_file("equipment.dump", "")
+for _, equipment in pairs(game.equipment_prototypes) do
+  game.write_file("equipment.dump", equipment.name .. " = " .. i .. ",\n", true)
   i = i + 1
 end
 

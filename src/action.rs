@@ -1,6 +1,7 @@
 use crate::constants::*;
 use std::io::{BufRead, Seek, Write};
 use factorio_serialize::{ReadWrite, ReadWriteStruct, ReadWriteTaggedUnion, Reader, Result, Writer};
+use num_traits::cast::{FromPrimitive, ToPrimitive};
 
 #[derive(Debug, ReadWriteStruct)]
 pub struct EquipmentData {
@@ -117,37 +118,6 @@ impl ReadWrite for SignalId {
   }
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum SignalIdOrConstant {
-  SignalId { signal_id: SignalId },
-  Constant { value: i32, },
-}
-impl ReadWrite for SignalIdOrConstant {
-  fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
-    let signal_id = SignalId::read(r)?;
-    let value = r.read_i32()?;
-    if r.read_bool()? {
-      Ok(SignalIdOrConstant::Constant { value, })
-    } else {
-      Ok(SignalIdOrConstant::SignalId { signal_id, })
-    }
-  }
-  fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
-    match self {
-      SignalIdOrConstant::Constant { value, } => {
-        SignalId::Item { item: Item::WoodenChest }.write(w)?;
-        w.write_i32(*value)?;
-        w.write_bool(true)
-      },
-      SignalIdOrConstant::SignalId { signal_id, } => {
-        signal_id.write(w)?;
-        w.write_i32(0)?;
-        w.write_bool(true)
-      },
-    }
-  }
-}
-
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
 pub struct GuiChangedData {
   pub gui_element_index: u32,
@@ -222,7 +192,9 @@ pub struct SetFilterParameters {
 pub struct CircuitCondition {
   pub comparator: Comparison,
   pub first_signal: SignalId,
-  pub second_signal: SignalIdOrConstant,
+  pub second_signal: SignalId,
+  pub second_constant: i32,
+  pub second_signal_is_constant: bool,
 }
 
 #[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
@@ -420,6 +392,502 @@ pub struct UpdateBlueprintData {
   new_label: String,
 }
 
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct SetBlueprintIconData {
+  signal: SignalId,
+  index: u8,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct BlueprintRecordId {
+  player_index: u16,
+  id: u32,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct DropBlueprintRecordParameters {
+  player_index: u16,
+  blueprint_book_to_drop_in: BlueprintRecordId,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct TransferBlueprintData {
+  record_id: BlueprintRecordId,
+  raw_blueprint_data: String,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct ChangeBlueprintBookRecordLabelData {
+  book_id: BlueprintRecordId,
+  label: String,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct ArithmeticCombinatorParameters {
+  first_signal_id: SignalId,
+  second_signal_id: SignalId,
+  output_signal_id: SignalId,
+  second_constant: i32,
+  operation: ArithmeticCombinatorParametersOperation,
+  second_signal_is_constant: bool,
+  first_constant: i32,
+  first_signal_is_constant: bool,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct DeciderCombinatorParameters {
+  first_signal_id: SignalId,
+  second_signal_id: SignalId,
+  output_signal_id: SignalId,
+  second_constant: i32,
+  comparator: Comparison,
+  copy_count_from_input: bool,
+  second_signal_is_constant: bool,
+}
+
+#[derive(Debug, ReadWriteStruct)]
+pub struct ProgrammableSpeakerParameters {
+  playback_volume: f64,
+  playback_globally: bool,
+  allow_polyphony: bool,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct ProgrammableSpeakerAlertParameters {
+  show_alert: bool,
+  show_on_map: bool,
+  icon_signal_id: SignalId,
+  alert_message: String,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct ProgrammableSpeakerCircuitParameters {
+  signal_value_is_pitch: bool,
+  selected_instrument_id: u32,
+  selected_note_id: u32,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct BuildTerrainParameters {
+  pub position: MapPosition,
+  pub direction: Direction,
+  #[negated_bool] pub created_by_moving: bool,
+  pub size: u8,
+  pub ghost_mode: bool,
+  pub skip_fog_of_war: bool,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct TrainWaitCondition {
+  action: TrainWaitConditionAction,
+  add_type: WaitConditionType,
+  schedule_index: u32,
+  condition_index: u32,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct TrainWaitConditionData {
+  schedule_index: u32,
+  condition_index: u32,
+  condition: WaitCondition,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct WaitCondition {
+  typ: WaitConditionType,
+  compare_type: WaitConditionComparisonType,
+  ticks: u32,
+  circuit_condition: CircuitCondition,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct BuildRailData {
+  mode: RailBuildingMode,
+  path: RailPathSpecification,
+  alternative_build: bool,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct RailPathSpecification {
+  starting_point: RailPlanFinderLocation,
+  buffer: ExtendedBitBuffer,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct RailPlanFinderLocation {
+  position: TilePosition,
+  direction: Direction,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq)]
+pub struct ExtendedBitBuffer {
+  bits: u32,
+  data: Vec<u32>,
+}
+impl ReadWrite for ExtendedBitBuffer {
+  fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
+    let bits = r.read_opt_u32()?;
+    let mut data = vec![];
+    for _ in 0..((bits + 31) / 32) { data.push( r.read_u32()?); }
+    Ok(ExtendedBitBuffer { bits, data, })
+  }
+  fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
+    w.write_opt_u32(self.bits)?;
+    for i in 0..((self.bits as usize + 31) / 32) { w.write_u32(self.data[i])?; }
+    Ok(())
+  }
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct TechnologyWithCount {
+  technology: Technology,
+  count: u32,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct ServerCommandData {
+  command: String,
+  id: u32,
+  connection_id: u64,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct InfinityContainerFilterItemData {
+  item: Item,
+  mode: InfinityFilterMode,
+  filter_index: u16,
+  count: u32,
+}
+
+#[derive(Debug, ReadWriteStruct)]
+pub struct InfinityPipeFilterData {
+  fluid: Fluid,
+  mode: InfinityFilterMode,
+  percentage: f64,
+  temperature: f64,
+}
+
+#[derive(Debug)]
+pub struct ModSettingsChangedData {
+  settings: Vec<ModSetting>,
+}
+impl ReadWrite for ModSettingsChangedData {
+  fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
+    let len = r.read_u32()?; // non-opt
+    let mut settings = vec![];
+    for _ in 0..len { settings.push(ModSetting::read(r)?); }
+    Ok(ModSettingsChangedData { settings, })
+  }
+  fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
+    w.write_u32(self.settings.len() as u32)?; // non-opt
+    for setting in &self.settings { setting.write(w)?; }
+    Ok(())
+  }
+}
+
+#[derive(Debug)]
+pub enum ModSetting {
+  BoolSetting(String, bool),
+  DoubleSetting(String, f64),
+  IntSetting(String, u64),
+  StringSetting(String, String),
+}
+impl ReadWrite for ModSetting {
+  fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
+    let typ = r.read_u8()?;
+    match typ {
+      1 => {
+        let name = String::read(r)?;
+        let value = bool::read(r)?;
+        Ok(ModSetting::BoolSetting(name, value))
+      },
+      2 => {
+        let name = String::read(r)?;
+        let value = f64::read(r)?;
+        Ok(ModSetting::DoubleSetting(name, value))
+      },
+      3 => {
+        let name = String::read(r)?;
+        let value = u64::read(r)?;
+        Ok(ModSetting::IntSetting(name, value))
+      },
+      4 => {
+        let name = String::read(r)?;
+        let value = String::read(r)?;
+        Ok(ModSetting::StringSetting(name, value))
+      },
+      _ => Err(r.error_at(format!("Unknown ModSetting type {}", typ), 1))
+    }
+  }
+  fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
+    match self {
+      ModSetting::BoolSetting(name, value) => {
+        1u8.write(w)?;
+        name.write(w)?;
+        value.write(w)
+      },
+      ModSetting::DoubleSetting(name, value) => {
+        2u8.write(w)?;
+        name.write(w)?;
+        value.write(w)
+      },
+      ModSetting::IntSetting(name, value) => {
+        3u8.write(w)?;
+        name.write(w)?;
+        value.write(w)
+      },
+      ModSetting::StringSetting(name, value) => {
+        4u8.write(w)?;
+        name.write(w)?;
+        value.write(w)
+      },
+    }
+  }
+}
+
+#[derive(Debug, ReadWriteStruct)]
+pub struct EntityEnergyPropertyChangedData {
+  typ: EnergyPropertyType,
+  value: f64,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct CustomChartTagData {
+  tag_number: u32,
+  name: String,
+  icon: SignalId,
+  position: MapPosition,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct EditPermissionGroupParameters {
+  #[space_optimized] group_id: u32,
+  player_index: u16,
+  action_index: u8,
+  new_group_name: String,
+  typ: EditPermissionGroupType,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct ImportBlueprintStringData {
+  string_data: String,
+  import_as_clipboard: bool,
+  hide_imported_text: bool,
+  not_from_chat: bool,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct ScriptDataTooLarge {
+  size: u32,
+  max_size: u32,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct ChooseElemId {
+  item: Item,
+  entity: Entity,
+  tile: Tile,
+  fluid: Fluid,
+  recipe: Recipe,
+  signal: SignalId,
+  decorative: Decorative,
+  item_group: ItemGroup,
+  achievement: Achievement,
+  equipment: Equipment,
+  technology: Technology,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq)]
+pub struct BlueprintTransferQueueUpdateData {
+  records: Vec<BlueprintTransferQueueUpdateDataRecord>,
+}
+impl ReadWrite for BlueprintTransferQueueUpdateData {
+  fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
+    let len = r.read_u32()?; // non-opt
+    let mut records = vec![];
+    for _ in 0..len { records.push(BlueprintTransferQueueUpdateDataRecord::read(r)?); }
+    Ok(BlueprintTransferQueueUpdateData { records, })
+  }
+  fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
+    w.write_u32(self.records.len() as u32)?; // non-opt
+    for record in &self.records { record.write(w)?; }
+    Ok(())
+  }
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct BlueprintTransferQueueUpdateDataRecord {
+  id: u32,
+  size: u32,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct DragListBoxData {
+  from: u32,
+  to: u32,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct DragWaitConditionListBoxData {
+  from: u32,
+  to: u32,
+  schedule_index: u32,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct SelectSlotParameters<T: ReadWrite> {
+  id: T,
+  index: u16,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct SelectMapperSlotParameters {
+  id: UpgradeId,
+  index: u16,
+  is_to: bool,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq)]
+pub enum UpgradeId {
+  Entity(Entity),
+  Item(Item),
+}
+impl ReadWrite for UpgradeId {
+  fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
+    let typ = r.read_u8()?;
+    match typ {
+      0 => {
+        let value = Entity::read(r)?;
+        Ok(UpgradeId::Entity(value))
+      },
+      1 => {
+        let value = Item::read(r)?;
+        Ok(UpgradeId::Item(value))
+      },
+      _ => Err(r.error_at(format!("Unknown UpgradeId type {}", typ), 1))
+    }
+  }
+  fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
+    match self {
+      UpgradeId::Entity(value) => {
+        0u8.write(w)?;
+        value.write(w)
+      },
+      UpgradeId::Item(value) => {
+        1u8.write(w)?;
+        value.write(w)
+      },
+    }
+  }
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct AdminActionData {
+  player_index: u16,
+  username: String,
+  new_group_id: u32,
+  action: AdminActionDataType,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct MultiplayerConfigSettings {
+  name: String,
+  description: String,
+  password: String,
+  allow_commands: AllowedCommands,
+  visibility: ServerGameVisibility,
+  max_players: u16,
+  autosave_interval: u32,
+  afk_auto_kick_interval: u32,
+  max_upload_in_kilobytes_per_second: u32,
+  max_upload_slots: u32,
+  autosave_only_on_server: bool,
+  non_blocking_saving: bool,
+  ignore_player_limit_for_returning_players: bool,
+  only_admins_can_pause_the_game: bool,
+  require_user_verification: bool,
+  enable_whitelist: bool,
+  tags: MultiplayerConfigSettingsTags,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq)]
+pub struct MultiplayerConfigSettingsTags {
+  tags: Vec<String>,
+}
+impl ReadWrite for MultiplayerConfigSettingsTags {
+  fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
+    let b = r.read_bool()?;
+    if b {
+      Ok(MultiplayerConfigSettingsTags { tags: <Vec<String>>::read(r)? })
+    } else { Ok(MultiplayerConfigSettingsTags { tags: vec![] }) }
+  }
+  fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
+    (!self.tags.is_empty()).write(w)?;
+    if !self.tags.is_empty() {
+      self.tags.write(w)
+    } else { Ok(()) }
+  }
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct ServerGameVisibility {
+  public_game: bool,
+  steam_game: bool,
+  lan_game: bool,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct LuaShortcutData {
+  player: u16,
+  prototype_name: String,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
+pub struct TranslationResultData {
+  localised_string: LocalisedString,
+  result: String,
+  translated: bool,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq)]
+pub struct LocalisedString {
+  key: String,
+  mode: LocalisedStringMode,
+  parameters: Vec<LocalisedString>,
+}
+impl ReadWrite for LocalisedString {
+  fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
+    let key = String::read(r)?;
+    let mode = LocalisedStringMode::read(r)?;
+    let len = r.read_u8()?; // non-opt
+    let mut parameters = vec![];
+    for _ in 0..len { parameters.push(LocalisedString::read(r)?); }
+    Ok(LocalisedString { key, mode, parameters, })
+  }
+  fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
+    self.key.write(w)?;
+    self.mode.write(w)?;
+    w.write_u8(self.parameters.len() as u8)?; // non-opt
+    for record in &self.parameters { record.write(w)?; }
+    Ok(())
+  }
+}
+
+#[derive(Debug, Eq, Hash, PartialEq)]
+pub struct SetSplitterPriorityData {
+  input_priority: SplitterPriority,
+  output_priority: SplitterPriority,
+}
+impl ReadWrite for SetSplitterPriorityData {
+  fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
+    let value = u8::read(r)?;
+    Ok(SetSplitterPriorityData { input_priority: SplitterPriority::from_u8(value / 3).unwrap(), output_priority: SplitterPriority::from_u8(value % 3).unwrap(), })
+  }
+  fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
+    let value = self.input_priority.to_u8().unwrap() * 3 + self.output_priority.to_u8().unwrap();
+    value.write(w)
+  }
+}
 
 #[derive(Debug, ReadWriteTaggedUnion)]
 #[tag_type(InputActionType)]
@@ -537,117 +1005,117 @@ pub enum InputActionData {
   AlternativeCopy(SelectAreaData),
   SelectBlueprintEntities(SelectAreaData),
   AltSelectBlueprintEntities(SelectAreaData),
-  // SetupBlueprint,
-  // SetupSingleBlueprintRecord,
-  // SetSingleBlueprintRecordIcon,
-  // OpenBlueprintRecord,
-  // CloseBlueprintBook,
-  // ChangeSingleBlueprintRecordLabel,
-  // GrabBlueprintRecord,
-  // DropBlueprintRecord,
-  // DeleteBlueprintRecord,
-  // CreateBlueprintLike,
-  // CreateBlueprintLikeStackTransfer,
+  SetupBlueprint(SetupBlueprintData),
+  SetupSingleBlueprintRecord(SetupBlueprintData),
+  SetSingleBlueprintRecordIcon(SetBlueprintIconData),
+  OpenBlueprintRecord(BlueprintRecordId),
+  CloseBlueprintBook(BlueprintRecordId),
+  ChangeSingleBlueprintRecordLabel(String),
+  GrabBlueprintRecord(BlueprintRecordId),
+  DropBlueprintRecord(DropBlueprintRecordParameters),
+  DeleteBlueprintRecord(BlueprintRecordId),
+  CreateBlueprintLike(Item),
+  CreateBlueprintLikeStackTransfer(Item),
   UpdateBlueprintShelf(UpdateBlueprintShelfData),
-  // TransferBlueprint,
-  // TransferBlueprintImmediately,
-  // ChangeBlueprintBookRecordLabel,
-  // RemoveCables,
-  // ExportBlueprint,
-  // ImportBlueprint,
+  TransferBlueprint(TransferBlueprintData),
+  TransferBlueprintImmediately(TransferBlueprintData),
+  ChangeBlueprintBookRecordLabel(ChangeBlueprintBookRecordLabelData),
+  RemoveCables(MapPosition),
+  ExportBlueprint(DropBlueprintRecordParameters),
+  ImportBlueprint(BlueprintRecordId),
   PlayerJoinGame(PlayerJoinGameData),
-  // CancelDeconstruct,
-  // CancelUpgrade,
-  // ChangeArithmeticCombinatorParameters,
-  // ChangeDeciderCombinatorParameters,
-  // ChangeProgrammableSpeakerParameters,
-  // ChangeProgrammableSpeakerAlertParameters,
-  // ChangeProgrammableSpeakerCircuitParameters,
-  // BuildTerrain,
-  // ChangeTrainWaitCondition,
-  // ChangeTrainWaitConditionData,
-  // CustomInput,
-  // ChangeItemLabel,
-  // BuildRail,
-  // CancelResearch,
-  // SelectArea,
-  // AltSelectArea,
-  // ServerCommand,
-  // ClearSelectedBlueprint,
-  // ClearSelectedDeconstructionItem,
-  // ClearSelectedUpgradeItem,
-  // SetLogisticTrashFilterItem,
-  // SetInfinityContainerFilterItem,
-  // SetInfinityPipeFilter,
-  // ModSettingsChanged,
-  // SetEntityEnergyProperty,
-  // EditCustomTag,
-  // EditPermissionGroup,
-  // ImportBlueprintString,
-  // ImportPermissionsString,
-  // ReloadScript,
-  // ReloadScriptDataTooLarge,
-  // GuiElemChanged,
-  // BlueprintTransferQueueUpdate,
-  // DragTrainSchedule,
-  // DragTrainWaitCondition,
-  // SelectItem,
-  // SelectEntitySlot,
-  // SelectTileSlot,
-  // SelectMapperSlot,
+  CancelDeconstruct(SelectAreaData),
+  CancelUpgrade(SelectAreaData),
+  ChangeArithmeticCombinatorParameters(ArithmeticCombinatorParameters),
+  ChangeDeciderCombinatorParameters(DeciderCombinatorParameters),
+  ChangeProgrammableSpeakerParameters(ProgrammableSpeakerParameters),
+  ChangeProgrammableSpeakerAlertParameters(ProgrammableSpeakerAlertParameters),
+  ChangeProgrammableSpeakerCircuitParameters(ProgrammableSpeakerCircuitParameters),
+  BuildTerrain(BuildTerrainParameters),
+  ChangeTrainWaitCondition(TrainWaitCondition),
+  ChangeTrainWaitConditionData(TrainWaitConditionData),
+  CustomInput(u16),
+  ChangeItemLabel(String),
+  BuildRail(BuildRailData),
+  CancelResearch(TechnologyWithCount),
+  SelectArea(SelectAreaData),
+  AltSelectArea(SelectAreaData),
+  ServerCommand(ServerCommandData),
+  ClearSelectedBlueprint(Slot),
+  ClearSelectedDeconstructionItem(Slot),
+  ClearSelectedUpgradeItem(Slot),
+  SetLogisticTrashFilterItem(LogisticFilterItemData),
+  SetInfinityContainerFilterItem(InfinityContainerFilterItemData),
+  SetInfinityPipeFilter(InfinityPipeFilterData),
+  ModSettingsChanged(ModSettingsChangedData),
+  SetEntityEnergyProperty(EntityEnergyPropertyChangedData),
+  EditCustomTag(CustomChartTagData),
+  EditPermissionGroup(EditPermissionGroupParameters),
+  ImportBlueprintString(ImportBlueprintStringData),
+  ImportPermissionsString(String),
+  ReloadScript(String),
+  ReloadScriptDataTooLarge(ScriptDataTooLarge),
+  GuiElemChanged(GuiGenericChangedData<ChooseElemId>),
+  BlueprintTransferQueueUpdate(BlueprintTransferQueueUpdateData),
+  DragTrainSchedule(DragListBoxData),
+  DragTrainWaitCondition(DragWaitConditionListBoxData),
+  SelectItem(SelectSlotParameters<Item>),
+  SelectEntitySlot(SelectSlotParameters<Entity>),
+  SelectTileSlot(SelectSlotParameters<Tile>),
+  SelectMapperSlot(SelectMapperSlotParameters),
   DisplayResolutionChanged(PixelPosition),
   QuickBarSetSlot(QuickBarSetSlotParameters),
   QuickBarPickSlot(QuickBarPickSlotParameters),
   QuickBarSetSelectedPage(QuickBarSetSelectedPageParameters),
-  // PlayerLeaveGame,
-  // MapEditorAction,
-  // PutSpecialItemInMap,
-  // ChangeMultiplayerConfig,
-  // AdminAction,
-  // LuaShortcut,
-  // TranslateString,
+  PlayerLeaveGame(DisconnectReason),
+  // MapEditorAction, // has lots of sub-operations
+  PutSpecialItemInMap(Slot),
+  ChangeMultiplayerConfig(MultiplayerConfigSettings),
+  AdminAction(AdminActionData),
+  LuaShortcut(LuaShortcutData),
+  TranslateString(TranslationResultData),
   ChangePickingState(u8),
   SelectedEntityChangedVeryClose(SelectedEntityChangedVeryCloseData),
   SelectedEntityChangedVeryClosePrecise(SelectedEntityChangedVeryClosePreciseData),
   SelectedEntityChangedRelative(SelectedEntityChangedRelativeData),
   SelectedEntityChangedBasedOnUnitNumber(u32),
-  // SetAutosortInventory,
-  // SetAutoLaunchRocket,
-  // SwitchConstantCombinatorState,
-  // SwitchPowerSwitchState,
-  // SwitchInserterFilterModeState,
-  // SwitchConnectToLogisticNetwork,
-  // SetBehaviorMode,
+  SetAutosortInventory(bool),
+  SetAutoLaunchRocket(bool),
+  SwitchConstantCombinatorState(bool),
+  SwitchPowerSwitchState(bool),
+  SwitchInserterFilterModeState(InserterFilterMode),
+  SwitchConnectToLogisticNetwork(bool),
+  SetBehaviorMode(HandOrContentsReadMode),
   FastEntityTransfer(TransferDirection),
-  // RotateEntity,
+  RotateEntity(u8), // unknown values
   FastEntitySplit(TransferDirection),
-  // SetTrainStopped,
-  // ChangeControllerSpeed,
-  // SetAllowCommands,
-  // SetResearchFinishedStopsGame,
-  // SetInserterMaxStackSize,
-  // OpenTrainGui,
-  // SetEntityColor,
-  // SetDeconstructionItemTreesAndRocksOnly,
-  // SetDeconstructionItemTileSelectionMode,
-  // DropToBlueprintBook,
-  // DeleteCustomTag,
-  // DeletePermissionGroup,
-  // AddPermissionGroup,
-  // SetInfinityContainerRemoveUnfilteredItems,
-  // SetCarWeaponsControl,
-  // SetRequestFromBuffers,
-  // ChangeActiveQuickBar,
-  // OpenPermissionsGui,
+  SetTrainStopped(bool),
+  ChangeControllerSpeed(f64),
+  SetAllowCommands(u8), // unknown values
+  SetResearchFinishedStopsGame(bool),
+  SetInserterMaxStackSize(u8),
+  OpenTrainGui(u32),
+  SetEntityColor(u32),
+  SetDeconstructionItemTreesAndRocksOnly(u8), // unknown values
+  SetDeconstructionItemTileSelectionMode(u8), // unknown values 0-3
+  DropToBlueprintBook(u16),
+  DeleteCustomTag(u32),
+  DeletePermissionGroup(u32),
+  AddPermissionGroup(u32),
+  SetInfinityContainerRemoveUnfilteredItems(bool),
+  SetCarWeaponsControl(u8), // unknown values
+  SetRequestFromBuffers(bool),
+  ChangeActiveQuickBar(u8),
+  OpenPermissionsGui(bool),
   DisplayScaleChanged(f64),
-  // SetSplitterPriority,
-  // GrabInternalBlueprintFromText,
-  // SetHeatInterfaceTemperature,
-  // SetHeatInterfaceMode,
-  // OpenTrainStationGui,
-  // RemoveTrainStation,
-  // GoToTrainStation,
-  // RenderModeChanged,
+  SetSplitterPriority(SetSplitterPriorityData),
+  GrabInternalBlueprintFromText(u32),
+  SetHeatInterfaceTemperature(f64),
+  SetHeatInterfaceMode(u8), // unknown values
+  OpenTrainStationGui(u32),
+  RemoveTrainStation(u32),
+  GoToTrainStation(u32),
+  RenderModeChanged(GameRenderMode),
 }
 
 #[derive(Debug)]
