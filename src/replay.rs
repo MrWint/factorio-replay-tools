@@ -1,4 +1,4 @@
-use crate::action::*;
+use factorio_serialize::inputaction::*;
 use std::io::Cursor;
 use factorio_serialize::{ReadWrite, Reader, Writer};
 

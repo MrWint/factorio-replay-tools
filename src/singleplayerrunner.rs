@@ -1,5 +1,5 @@
-use crate::action::*;
-use crate::constants::*;
+use factorio_serialize::constants::*;
+use factorio_serialize::inputaction::*;
 
 const PID: u16 = 0;
 

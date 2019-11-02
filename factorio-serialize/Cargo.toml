@@ -6,4 +6,6 @@ edition = "2018"
 
 [dependencies]
 byteorder = "*"
+enum-primitive-derive = "*"
 factorio-serialize-derive = { path = "factorio-serialize-derive" }
+num-traits = "*"

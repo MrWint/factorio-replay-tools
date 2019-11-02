@@ -1,10 +1,8 @@
-mod action;
-mod constants;
 mod replay;
 mod singleplayerrunner;
 
-#[allow(unused_imports)] use crate::action::*;
-use crate::constants::*;
+use factorio_serialize::constants::*;
+use factorio_serialize::inputaction::*;
 use crate::replay::*;
 use crate::singleplayerrunner::*;
 use factorio_serialize::Reader;

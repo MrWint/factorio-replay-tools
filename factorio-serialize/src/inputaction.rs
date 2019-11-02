@@ -1,3 +1,4 @@
+use crate as factorio_serialize;
 use crate::constants::*;
 use std::io::{BufRead, Seek, Write};
 use factorio_serialize::{ReadWrite, ReadWriteStruct, ReadWriteTaggedUnion, Reader, Result, Writer};
