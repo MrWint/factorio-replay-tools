@@ -1,10 +1,13 @@
 use byteorder::{LittleEndian, WriteBytesExt};
+use crate::ReadWrite;
 use crate::error::{Error, Result};
+use crate::structs::MapPosition;
 use std::io::{Write, Seek, SeekFrom};
 
 
 pub struct Writer<W> {
   writer: W,
+  pub last_saved_position: MapPosition,
 }
 impl<W: Write + Seek> Writer<W> {
   pub fn position(&mut self) -> u64 {
@@ -18,7 +21,7 @@ impl<W: Write + Seek> Writer<W> {
   }
 
   pub fn new(writer: W) -> Self {
-    Self { writer }
+    Self { writer, last_saved_position: MapPosition::new(0, 0) }
   }
 
   #[inline] pub fn write_i8(&mut self, value: i8) -> Result<()> { self.writer.write_i8(value).map_err(|e| self.io_error(e)) }
@@ -55,5 +58,12 @@ impl<W: Write + Seek> Writer<W> {
     self.write_opt_u32(bytes.len() as u32)?;
     self.writer.write_all(&bytes).map_err(|e| self.io_error(e))
   }
+  pub fn write_array<'a, T: 'a + ReadWrite, I: IntoIterator<Item=&'a T>>(&mut self, array: I) -> Result<()> {
+    array.into_iter().map(|v| v.write(self)).collect()
+  }
+  pub fn map_write_array<'a, T: 'a + ReadWrite, I: IntoIterator<Item=&'a T>>(&mut self, array: I) -> Result<()> {
+    array.into_iter().map(|v| v.map_write(self)).collect()
+  }
+
   pub fn into_inner(self) -> W { self.writer }
 }

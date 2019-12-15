@@ -1,10 +1,14 @@
 use byteorder::{LittleEndian, ReadBytesExt};
+use crate::ReadWrite;
 use crate::error::{Error, Result};
+use crate::structs::MapPosition;
 use std::io::{BufRead, Seek, SeekFrom};
+use std::iter::FromIterator;
 use std::string::FromUtf8Error;
 
 pub struct Reader<R> {
   reader: R,
+  pub last_loaded_position: MapPosition,
 }
 impl<R: BufRead + Seek> Reader<R> {
   pub fn position(&mut self) -> u64 {
@@ -21,7 +25,7 @@ impl<R: BufRead + Seek> Reader<R> {
   }
 
   pub fn new(reader: R) -> Self {
-    Self { reader }
+    Self { reader, last_loaded_position: MapPosition::new(0, 0) }
   }
   pub fn is_at_eof(&mut self) -> Result<bool> {
     self.reader.fill_buf().map(|x| x.is_empty()).map_err(|e| self.io_error(e))
@@ -37,7 +41,7 @@ impl<R: BufRead + Seek> Reader<R> {
   #[inline] pub fn read_f64(&mut self) -> Result<f64> { self.reader.read_f64::<LittleEndian>().map_err(|e| self.io_error(e)) }
   pub fn read_bool(&mut self) -> Result<bool> {
     let value = self.read_u8()?;
-    if value > 1 { // bools other than 0 or 1 are UD in C++, something went wrong
+    if value > 1 { // bools other than 0 or 1 are UB in C++, something went wrong
       Err(self.error_at(format!("value {:#x} is not a valid boolean", value), 1))
     } else {
       Ok(value == 1) // https://wiki.factorio.com/Data_types#bool
@@ -65,8 +69,14 @@ impl<R: BufRead + Seek> Reader<R> {
     self.reader.read_exact(&mut bytes).map_err(|e| self.io_error(e))?;
     String::from_utf8(bytes).map_err(|e| self.utf8_error_at(e, len as u64 + 1))
   }
-  pub fn into_inner(self) -> R { self.reader }
+  pub fn read_array<T: ReadWrite, C: FromIterator<T>>(&mut self, len: u32) -> Result<C> {
+    (0..len).map(|_| T::read(self)).collect()
+  }
+  pub fn map_read_array<T: ReadWrite, C: FromIterator<T>>(&mut self, len: u32) -> Result<C> {
+    (0..len).map(|_| T::map_read(self)).collect()
+  }
 
+  pub fn into_inner(self) -> R { self.reader }
 
   pub fn read_u8_assert(&mut self, expected_value: u8) -> Result<u8> {
     let value = self.read_u8()?;

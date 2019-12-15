@@ -422,6 +422,21 @@ pub enum RailBuildingMode {
   Ghost = 1,
 }
 
+// Source: RecipeDifficulty::Value
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU8)]
+pub enum RecipeDifficulty {
+  Normal = 0,
+  Expensive = 1,
+}
+
+// Source: ResearchQueueSetting
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU8)]
+pub enum ResearchQueueSetting {
+  Always = 0,
+  AfterVictory = 1,
+  Never = 2,
+}
+
 // Source: defines.riding.acceleration
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU8)]
 pub enum RidingAccelerationState {
@@ -495,6 +510,28 @@ pub enum SwitchState {
   Left = 0,
   Right = 1,
   None = 2,
+}
+
+// Source: TechnologyDifficulty::Value
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU8)]
+pub enum TechnologyDifficulty {
+  Normal = 0,
+  Expensive = 1,
+}
+
+// Source: disassembly TrainState::Enum
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReadWriteEnumU8)]
+pub enum TrainState {
+  OnThePath = 0,
+  PathLost = 1,
+  NoSchedule = 2,
+  NoPath = 3,
+  ArriveSignal = 4,
+  WaitSignal = 5,
+  ArriveStation = 6,
+  WaitStation = 7,
+  ManualControlStop = 8,
+  ManualControl = 9,
 }
 
 // Source: disassembly ActionData::TrainWaitCondition::Action

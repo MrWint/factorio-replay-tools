@@ -3,8 +3,11 @@ mod error;
 pub mod inputaction;
 pub mod map;
 mod reader;
+pub mod structs;
 mod writer;
 
+use std::collections::HashMap;
+use std::hash::Hash;
 use std::io::{BufRead, Seek, Write};
 
 pub use crate::error::{Error, Result};
@@ -15,6 +18,8 @@ pub use factorio_serialize_derive::{ReadWriteStruct, ReadWriteTaggedUnion, ReadW
 pub trait ReadWrite: Sized {
   fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self>;
   fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()>;
+  fn map_read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> { Self::read(r) }
+  fn map_write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> { self.write(w) }
 }
 
 impl ReadWrite for i8 {
@@ -65,19 +70,99 @@ impl ReadWrite for String {
   #[inline] fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> { w.write_string(self) }
 }
 
+impl<T: ReadWrite> ReadWrite for Option<T> {
+  fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
+    if r.read_bool()? { Ok(Some(T::read(r)?)) } else { Ok(None) }
+  }
+  fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
+    w.write_bool(self.is_some())?;
+    if let Some(value) = self { value.write(w)?; }
+    Ok(())
+  }
+  fn map_read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
+    if r.read_bool()? { Ok(Some(T::map_read(r)?)) } else { Ok(None) }
+  }
+  fn map_write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
+    w.write_bool(self.is_some())?;
+    if let Some(value) = self { value.map_write(w)?; }
+    Ok(())
+  }
+}
+
 impl<T: ReadWrite> ReadWrite for Vec<T> {
   fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
     let len = r.read_opt_u32()?;
-    let mut result = Vec::<T>::new();
+    r.read_array(len)
+  }
+  fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
+    w.write_opt_u32(self.len() as u32)?;
+    w.write_array(self)
+  }
+  fn map_read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
+    let len = r.read_opt_u32()?;
+    r.map_read_array(len)
+  }
+  fn map_write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
+    w.write_opt_u32(self.len() as u32)?;
+    w.map_write_array(self)
+  }
+}
+
+impl<K: ReadWrite, V: ReadWrite> ReadWrite for (K, V) {
+  fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
+    let key = K::read(r)?;
+    let value = V::read(r)?;
+    Ok((key, value))
+  }
+  fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
+    self.0.write(w)?;
+    self.1.write(w)
+  }
+  fn map_read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
+    let key = K::map_read(r)?;
+    let value = V::map_read(r)?;
+    Ok((key, value))
+  }
+  fn map_write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
+    self.0.map_write(w)?;
+    self.1.map_write(w)
+  }
+}
+
+impl<K: ReadWrite + Eq + Hash, V: ReadWrite> ReadWrite for HashMap<K, V> {
+  fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
+    let len = r.read_opt_u32()?;
+    let mut result = HashMap::<K, V>::new();
     for _ in 0..len {
-      result.push(T::read(r)?);
+      let key = K::read(r)?;
+      let value = V::read(r)?;
+      result.insert(key, value);
     }
     Ok(result)
   }
   fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
     w.write_opt_u32(self.len() as u32)?;
-    for item in self {
-      item.write(w)?;
+    for (key, value) in self {
+      key.write(w)?;
+      value.write(w)?;
+    }
+    Ok(())
+  }
+  fn map_read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
+    let len = r.read_opt_u32()?;
+    let mut result = HashMap::<K, V>::new();
+    for _ in 0..len {
+      let key = K::map_read(r)?;
+      let value = V::map_read(r)?;
+      result.insert(key, value);
+    }
+    Ok(result)
+  }
+  fn map_write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
+    w.write_opt_u32(self.len() as u32)?;
+    for (key, value) in self {
+      key.map_write(w)?;
+      value.map_write(w)?;
     }
     Ok(())
   }

@@ -44,7 +44,7 @@ pub fn derive_enum_u16(input: TokenStream) -> TokenStream {
   TokenStream::from(expanded)
 }
 
-#[proc_macro_derive(ReadWriteStruct, attributes(negated_bool, space_optimized))]
+#[proc_macro_derive(ReadWriteStruct, attributes(negated_bool, space_optimized, map, non_space_optimized))]
 pub fn derive_readwrite(input: TokenStream) -> TokenStream {
   let input = parse_macro_input!(input as DeriveInput);
 
@@ -72,8 +72,38 @@ pub fn derive_readwrite(input: TokenStream) -> TokenStream {
             syn::Type::Path(path_type) if path_type.path.is_ident("u32") => quote! { let #name = r.read_opt_u32()?; },
             _ => panic!("space_optimized is only allowed on u16 and u32 types")
           }
+        } else if field.attrs.iter().any(|attr| attr.path.is_ident("non_space_optimized")) {
+          match ty {
+            syn::Type::Path(path_type) if path_type.path.segments.len() == 1 && path_type.path.segments.first().unwrap().ident == "Vec" => quote! { let #name = { let len = r.read_u32()?; r.read_array(len)? }; },
+            _ => panic!("space_optimized is only allowed on Vec types")
+          }
+        } else if field.attrs.iter().any(|attr| attr.path.is_ident("map")) {
+          quote! { let #name = <#ty>::map_read(r)?; }
         } else {
           quote! { let #name = <#ty>::read(r)?; }
+        }
+      }).collect();
+      let map_read_tokens: proc_macro2::TokenStream = punctuated.iter().map(|field| {
+        let name = field.ident.as_ref().unwrap();
+        let ty = &field.ty;
+        if field.attrs.iter().any(|attr| attr.path.is_ident("negated_bool")) {
+          match ty {
+            syn::Type::Path(path_type) if path_type.path.is_ident("bool") => quote! { let #name = !r.read_bool()?; },
+            _ => panic!("negated_bool is only allowed on bool type")
+          }
+        } else if field.attrs.iter().any(|attr| attr.path.is_ident("space_optimized")) {
+          match ty {
+            syn::Type::Path(path_type) if path_type.path.is_ident("u16") => quote! { let #name = r.read_opt_u16()?; },
+            syn::Type::Path(path_type) if path_type.path.is_ident("u32") => quote! { let #name = r.read_opt_u32()?; },
+            _ => panic!("space_optimized is only allowed on u16 and u32 types")
+          }
+        } else if field.attrs.iter().any(|attr| attr.path.is_ident("non_space_optimized")) {
+          match ty {
+            syn::Type::Path(path_type) if path_type.path.segments.len() == 1 && path_type.path.segments.first().unwrap().ident == "Vec" => quote! { let #name = { let len = r.read_u32()?; r.map_read_array(len)? }; },
+            _ => panic!("space_optimized is only allowed on Vec types")
+          }
+        } else {
+          quote! { let #name = <#ty>::map_read(r)?; }
         }
       }).collect();
       let write_tokens: proc_macro2::TokenStream = punctuated.iter().map(|field| {
@@ -89,8 +119,37 @@ pub fn derive_readwrite(input: TokenStream) -> TokenStream {
             syn::Type::Path(path_type) if path_type.path.is_ident("u32") => quote! { w.write_opt_u32(self.#name)?; },
             _ => panic!("space_optimized is only allowed on u16 and u32 types")
           }
+        } else if field.attrs.iter().any(|attr| attr.path.is_ident("non_space_optimized")) {
+          match &field.ty {
+            syn::Type::Path(path_type) if path_type.path.segments.len() == 1 && path_type.path.segments.first().unwrap().ident == "Vec" => quote! { w.write_opt_u32(self.#name.len() as u32)?; w.write_array(&self.#name)?; },
+            _ => panic!("space_optimized is only allowed on Vec types")
+          }
+        } else if field.attrs.iter().any(|attr| attr.path.is_ident("map")) {
+          quote! { self.#name.map_write(w)?; }
         } else {
           quote! { self.#name.write(w)?; }
+        }
+      }).collect();
+      let map_write_tokens: proc_macro2::TokenStream = punctuated.iter().map(|field| {
+        let name = field.ident.as_ref().unwrap();
+        if field.attrs.iter().any(|attr| attr.path.is_ident("negated_bool")) {
+          match &field.ty {
+            syn::Type::Path(path_type) if path_type.path.is_ident("bool") => quote! { w.write_bool(!self.#name)?; },
+            _ => panic!("negated_bool is only allowed on bool type")
+          }
+        } else if field.attrs.iter().any(|attr| attr.path.is_ident("space_optimized")) {
+          match &field.ty {
+            syn::Type::Path(path_type) if path_type.path.is_ident("u16") => quote! { w.write_opt_u16(self.#name)?; },
+            syn::Type::Path(path_type) if path_type.path.is_ident("u32") => quote! { w.write_opt_u32(self.#name)?; },
+            _ => panic!("space_optimized is only allowed on u16 and u32 types")
+          }
+        } else if field.attrs.iter().any(|attr| attr.path.is_ident("non_space_optimized")) {
+          match &field.ty {
+            syn::Type::Path(path_type) if path_type.path.segments.len() == 1 && path_type.path.segments.first().unwrap().ident == "Vec" => quote! { w.write_opt_u32(self.#name.len() as u32)?; w.map_write_array(&self.#name)?; },
+            _ => panic!("space_optimized is only allowed on Vec types")
+          }
+        } else {
+          quote! { self.#name.map_write(w)?; }
         }
       }).collect();
       let struct_param_tokens: proc_macro2::TokenStream = punctuated.iter().map(|field| {
@@ -108,6 +167,14 @@ pub fn derive_readwrite(input: TokenStream) -> TokenStream {
           }
           fn write<W: std::io::Write + std::io::Seek>(&self, w: &mut factorio_serialize::Writer<W>) -> factorio_serialize::Result<()> {
             #write_tokens
+            Ok(())
+          }
+          fn map_read<R: std::io::BufRead + std::io::Seek>(r: &mut factorio_serialize::Reader<R>) -> factorio_serialize::Result<Self> {
+            #map_read_tokens
+            Ok(#name { #struct_param_tokens })
+          }
+          fn map_write<W: std::io::Write + std::io::Seek>(&self, w: &mut factorio_serialize::Writer<W>) -> factorio_serialize::Result<()> {
+            #map_write_tokens
             Ok(())
           }
         }

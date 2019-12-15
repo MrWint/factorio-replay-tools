@@ -1,5 +1,6 @@
 use crate as factorio_serialize;
 use crate::constants::*;
+use crate::structs::*;
 use std::io::{BufRead, Seek, Write};
 use factorio_serialize::{ReadWrite, ReadWriteStruct, ReadWriteTaggedUnion, Reader, Result, Writer};
 use num_traits::cast::{FromPrimitive, ToPrimitive};
@@ -43,24 +44,6 @@ impl Slot {
     Slot { inventory_index: 3, slot_index, source: SlotSource::EntityInventory, target: SlotTarget::Default, }
   }
 }
-type FixedPoint32 = i32;
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
-pub struct MapPosition { // in 1/256th tiles
-  pub x: FixedPoint32,
-  pub y: FixedPoint32,
-}
-impl MapPosition {
-  pub fn new(x: FixedPoint32, y: FixedPoint32) -> Self {
-    Self { x, y }
-  }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, ReadWriteStruct)]
-pub struct BoundingBox {
-  pub left_top: MapPosition,
-  pub right_bottom: MapPosition,
-  pub orientation: f32, // always in [0,1)
-}
 
 #[derive(Clone, Copy, Debug, PartialEq, ReadWriteStruct)]
 pub struct SelectAreaData {
@@ -85,38 +68,6 @@ pub struct TilePosition {
 pub struct CrcData {
   pub crc: u32,
   pub tick_of_crc: u32,
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum SignalId {
-  Item { item: Item },
-  Fluid { fluid: Fluid, },
-  VirtualSignal { virtual_signal: VirtualSignal, },
-}
-impl ReadWrite for SignalId {
-  fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
-    match SignalIdType::read(r)? {
-      SignalIdType::Item => Ok(SignalId::Item { item: Item::read(r)?, }),
-      SignalIdType::Fluid => Ok(SignalId::Fluid { fluid: Fluid::read(r)?, }),
-      SignalIdType::VirtualSignal => Ok(SignalId::VirtualSignal { virtual_signal: VirtualSignal::read(r)?, }),
-    }
-  }
-  fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
-    match self {
-      SignalId::Item { item, } => {
-        SignalIdType::Item.write(w)?;
-        item.write(w)
-      },
-      SignalId::Fluid { fluid, } => {
-        SignalIdType::Fluid.write(w)?;
-        fluid.write(w)
-      },
-      SignalId::VirtualSignal { virtual_signal, } => {
-        SignalIdType::VirtualSignal.write(w)?;
-        virtual_signal.write(w)
-      },
-    }
-  }
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
@@ -153,12 +104,6 @@ pub struct BuildItemParameters {
 }
 
 #[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
-pub struct RidingState {
-  pub direction: RidingDirection,
-  pub acceleration_state: RidingAccelerationState,
-}
-
-#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
 pub struct CraftData {
   pub recipe: Recipe,
   pub count: u32,
@@ -187,15 +132,6 @@ pub struct CancelCraftOrder {
 pub struct SetFilterParameters {
   pub target: Slot,
   pub filter: Item,
-}
-
-#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
-pub struct CircuitCondition {
-  pub comparator: Comparison,
-  pub first_signal: SignalId,
-  pub second_signal: SignalId,
-  pub second_constant: i32,
-  pub second_signal_is_constant: bool,
 }
 
 #[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
@@ -372,8 +308,7 @@ impl ReadWrite for Sha1Digest {
     Ok(Sha1Digest(sha1))
   }
   fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
-    for i in 0..20 { w.write_u8(self.0[i])? }
-    Ok(())
+    w.write_array(&self.0)
   }
 }
 
@@ -494,14 +429,6 @@ pub struct TrainWaitConditionData {
 }
 
 #[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
-pub struct WaitCondition {
-  typ: WaitConditionType,
-  compare_type: WaitConditionComparisonType,
-  ticks: u32,
-  circuit_condition: CircuitCondition,
-}
-
-#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
 pub struct BuildRailData {
   mode: RailBuildingMode,
   path: RailPathSpecification,
@@ -528,14 +455,11 @@ pub struct ExtendedBitBuffer {
 impl ReadWrite for ExtendedBitBuffer {
   fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
     let bits = r.read_opt_u32()?;
-    let mut data = vec![];
-    for _ in 0..((bits + 31) / 32) { data.push( r.read_u32()?); }
-    Ok(ExtendedBitBuffer { bits, data, })
+    Ok(ExtendedBitBuffer { bits, data: r.read_array((bits + 31) / 32)?, })
   }
   fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
     w.write_opt_u32(self.bits)?;
-    for i in 0..((self.bits as usize + 31) / 32) { w.write_u32(self.data[i])?; }
-    Ok(())
+    w.write_array(&self.data)
   }
 }
 
@@ -568,22 +492,9 @@ pub struct InfinityPipeFilterData {
   temperature: f64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, ReadWriteStruct)]
 pub struct ModSettingsChangedData {
-  settings: Vec<ModSetting>,
-}
-impl ReadWrite for ModSettingsChangedData {
-  fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
-    let len = r.read_u32()?; // non-opt
-    let mut settings = vec![];
-    for _ in 0..len { settings.push(ModSetting::read(r)?); }
-    Ok(ModSettingsChangedData { settings, })
-  }
-  fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
-    w.write_u32(self.settings.len() as u32)?; // non-opt
-    for setting in &self.settings { setting.write(w)?; }
-    Ok(())
-  }
+  #[non_space_optimized] settings: Vec<ModSetting>,
 }
 
 #[derive(Debug)]
@@ -698,22 +609,9 @@ pub struct ChooseElemId {
   technology: Technology,
 }
 
-#[derive(Debug, Eq, Hash, PartialEq)]
+#[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
 pub struct BlueprintTransferQueueUpdateData {
-  records: Vec<BlueprintTransferQueueUpdateDataRecord>,
-}
-impl ReadWrite for BlueprintTransferQueueUpdateData {
-  fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
-    let len = r.read_u32()?; // non-opt
-    let mut records = vec![];
-    for _ in 0..len { records.push(BlueprintTransferQueueUpdateDataRecord::read(r)?); }
-    Ok(BlueprintTransferQueueUpdateData { records, })
-  }
-  fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
-    w.write_u32(self.records.len() as u32)?; // non-opt
-    for record in &self.records { record.write(w)?; }
-    Ok(())
-  }
+  #[non_space_optimized] records: Vec<BlueprintTransferQueueUpdateDataRecord>,
 }
 
 #[derive(Debug, Eq, Hash, PartialEq, ReadWriteStruct)]
@@ -860,7 +758,7 @@ impl ReadWrite for LocalisedString {
   fn read<R: BufRead + Seek>(r: &mut Reader<R>) -> Result<Self> {
     let key = String::read(r)?;
     let mode = LocalisedStringMode::read(r)?;
-    let len = r.read_u8()?; // non-opt
+    let len = r.read_u8()?;
     let mut parameters = vec![];
     for _ in 0..len { parameters.push(LocalisedString::read(r)?); }
     Ok(LocalisedString { key, mode, parameters, })
@@ -868,7 +766,7 @@ impl ReadWrite for LocalisedString {
   fn write<W: Write + Seek>(&self, w: &mut Writer<W>) -> Result<()> {
     self.key.write(w)?;
     self.mode.write(w)?;
-    w.write_u8(self.parameters.len() as u8)?; // non-opt
+    w.write_u8(self.parameters.len() as u8)?;
     for record in &self.parameters { record.write(w)?; }
     Ok(())
   }

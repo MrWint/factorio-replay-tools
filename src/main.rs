@@ -2,19 +2,21 @@ mod replay;
 mod singleplayerrunner;
 
 use factorio_serialize::constants::*;
-use factorio_serialize::inputaction::*;
+use factorio_serialize::map::*;
+use factorio_serialize::structs::*;
 use crate::replay::*;
 use crate::singleplayerrunner::*;
-use factorio_serialize::Reader;
+use factorio_serialize::{Reader,ReadWrite};
 use heck::CamelCase;
 use std::fs::File;
 use std::io::{Cursor, Read, Write};
 use zip::write::FileOptions;
 
 fn main() {
+  test_read_map_data();
   // load_and_save_test();
   // assemble_test_tas();
-  assemble_automation_tas();
+  // assemble_automation_tas();
   // parse_items_game_data();
   // parse_recipes_game_data();
   // parse_technologies_game_data();
@@ -51,6 +53,15 @@ fn parse_technologies_game_data() {
     let id = reader.read_u16().unwrap();
     println!("  {} = {},", name, id)
   }
+}
+
+#[allow(dead_code)]
+fn test_read_map_data() {
+  let map_data = load_file("data/test-0.17.69-level.dat");
+  let mut reader = Reader::new(Cursor::new(map_data));
+  let map = Map::map_read(&mut reader).unwrap();
+  println!("{:#?}", map);
+  println!("position: {:x}", reader.position());
 }
 
 

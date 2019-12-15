@@ -1,5 +1,6 @@
 use factorio_serialize::constants::*;
 use factorio_serialize::inputaction::*;
+use factorio_serialize::structs::*;
 
 const PID: u16 = 0;
 
