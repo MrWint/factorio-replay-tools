@@ -2,6 +2,7 @@ use factorio_serialize::inputaction::*;
 use std::io::Cursor;
 use factorio_serialize::{ReadWrite, Reader, Writer};
 
+#[allow(dead_code)]
 pub fn parse_replay(replay_bytes: Vec<u8>) -> Vec<InputAction> {
   let mut r = Reader::new(Cursor::new(replay_bytes));
   let mut result = vec![];

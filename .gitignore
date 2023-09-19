@@ -1,3 +1,2 @@
 /target
-**/*.rs.bk
-symbols_*.xml
+*.dump

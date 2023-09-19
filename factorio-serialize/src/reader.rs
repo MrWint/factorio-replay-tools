@@ -1,14 +1,11 @@
 use byteorder::{LittleEndian, ReadBytesExt};
-use crate::ReadWrite;
 use crate::error::{Error, Result};
-use crate::structs::MapPosition;
 use std::io::{BufRead, Seek, SeekFrom};
 use std::iter::FromIterator;
 use std::string::FromUtf8Error;
 
 pub struct Reader<R> {
   reader: R,
-  pub last_loaded_position: MapPosition,
 }
 impl<R: BufRead + Seek> Reader<R> {
   pub fn position(&mut self) -> u64 {
@@ -25,7 +22,7 @@ impl<R: BufRead + Seek> Reader<R> {
   }
 
   pub fn new(reader: R) -> Self {
-    Self { reader, last_loaded_position: MapPosition::new(0, 0) }
+    Self { reader }
   }
   pub fn is_at_eof(&mut self) -> Result<bool> {
     self.reader.fill_buf().map(|x| x.is_empty()).map_err(|e| self.io_error(e))
@@ -63,20 +60,67 @@ impl<R: BufRead + Seek> Reader<R> {
       self.read_u32()
     }
   }
+  pub fn read_size_optimized_u32(&mut self) -> Result<u32> {
+    let mut tmp = self.read_u8()?;
+    let mut result = 0;
+    let mut count = 0;
+    while tmp >= 0x80 {
+      tmp <<= 1;
+      result = (result << 8) | self.read_u8()? as u32;
+      count += 1;
+    }
+    Ok(result | ((tmp as u32) << (count * 7)))
+  }
+  pub fn read_compacted_sorted_indices(&mut self) -> Result<Vec<u32>> {
+    let len = self.read_size_optimized_u32()? as usize;
+    let mut result = Vec::with_capacity(len);
+
+    while result.len() < len {
+      let mut first_val = self.read_size_optimized_u32()?;
+      let sequence_len = if first_val & 1 == 0 { 1 } else { std::cmp::min(self.read_size_optimized_u32()? + 1, 100) };
+      first_val = (first_val >> 1) + result.last().map(|&x| x+1).unwrap_or(0);
+      for o in 0..sequence_len {
+        result.push(first_val + o);
+      }
+    }
+
+    Ok(result)
+  }
+  pub fn read_opt_u64(&mut self) -> Result<u64> {
+    let tmp = self.read_u8()?;
+    if tmp != 0xff {
+      Ok(u64::from(tmp))
+    } else {
+      self.read_u64()
+    }
+  }
   pub fn read_string(&mut self) -> Result<String> {
     let len = self.read_opt_u32()? as usize;
     let mut bytes = vec![0; len];
     self.reader.read_exact(&mut bytes).map_err(|e| self.io_error(e))?;
     String::from_utf8(bytes).map_err(|e| self.utf8_error_at(e, len as u64 + 1))
   }
-  pub fn read_array<T: ReadWrite, C: FromIterator<T>>(&mut self, len: u32) -> Result<C> {
-    (0..len).map(|_| T::read(self)).collect()
+  pub fn read_immutable_string(&mut self) -> Result<Option<String>> {
+    let is_null = self.read_bool()?;
+    if is_null {
+      Ok(None)
+    } else {
+      Ok(Some(self.read_string()?))
+    }
   }
-  pub fn map_read_array<T: ReadWrite, C: FromIterator<T>>(&mut self, len: u32) -> Result<C> {
-    (0..len).map(|_| T::map_read(self)).collect()
+
+  pub fn read_array<C: FromIterator<u32>>(&mut self, len: u32) -> Result<C> {
+    (0..len).map(|_| self.read_u32()).collect()
   }
 
   pub fn into_inner(self) -> R { self.reader }
+
+
+  pub fn read_to_end(&mut self) -> Result<Vec<u8>> {
+    let mut bytes = Vec::new();
+    self.reader.read_to_end(&mut bytes).map_err(|e| self.io_error(e))?;
+    Ok(bytes)
+  }
 
   pub fn read_u8_assert(&mut self, expected_value: u8) -> Result<u8> {
     let value = self.read_u8()?;

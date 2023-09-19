@@ -1,0 +1,32 @@
+Simplifications:
+No Logistics: global inventory, objects don't have locations
+No fuel/power requirements
+No loading/fueling delay frames
+
+Stone furnace: Iron Ore + 192 ticks -> Iron Plate
+Stone furnace: Copper Ore + 192 ticks -> Copper Plate
+Stone furnace: 2xStone + 192 ticks -> Stone Brick
+
+Burner mining drill: 240 ticks -> Iron Ore
+Burner mining drill: 240 ticks -> Copper Ore
+Burner mining drill: 240 ticks -> Stone
+
+CPlate + 30 ticks -> 2x Wire
+3x Wite + Plate + 30 ticks -> Circuit
+2x Plate + 30 ticks -> Gear
+3x Circuit + 5x Gear + 9x Plate + 30 ticks -> Assembling Machine
+
+5x Stone + 30 ticks -> Stone furnace
+3x Gear + 3x Plate + + Stone furnace + 120 ticks -> Burner mining drill
+
+
+
+
+Unlock order
+Research order
+Building order
+
+
+
+
+

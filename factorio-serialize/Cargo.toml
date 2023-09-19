@@ -2,10 +2,11 @@
 name = "factorio-serialize"
 version = "0.1.0"
 authors = ["MrWint <mrwint42@gmail.com>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 byteorder = "*"
 enum-primitive-derive = "*"
 factorio-serialize-derive = { path = "factorio-serialize-derive" }
 num-traits = "*"
+zip = "0.6"

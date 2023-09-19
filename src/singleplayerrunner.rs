@@ -1,6 +1,5 @@
 use factorio_serialize::constants::*;
-use factorio_serialize::inputaction::*;
-use factorio_serialize::structs::*;
+use factorio_serialize::replay::*;
 
 const PID: u16 = 0;
 
@@ -19,55 +18,55 @@ impl SinglePlayerRunner {
   }
 
   pub fn build(mut self, item: Item, position: MapPosition, direction: Direction) -> Self {
-    self.items.push(InputAction::new(self.tick, PID, InputActionData::SetFilter(SetFilterParameters { target: Slot::from_quick_bar(0, 0), filter: item, }))); // Configure quickbar slot
+    self.items.push(InputAction::new(self.tick, PID, InputActionData::SetFilter(SetFilterParameters { target: ItemStackTargetSpecification::from_quick_bar(0, 0), filter: item, }))); // Configure quickbar slot
     self.items.push(InputAction::new(self.tick, PID, InputActionData::QuickBarPickSlot(QuickBarPickSlotParameters { location: 0, pick_ghost_cursor: false, cursor_split: false, }))); // Select quickbar into cursor
-    self.items.push(InputAction::new(self.tick, PID, InputActionData::BuildItem(BuildItemParameters { position, direction, created_by_moving: false, allow_belt_power_replace: false, shift_build: false, skip_fog_of_war: false, }))); // Build item from cursor
-    self.items.push(InputAction::new(self.tick, PID, InputActionData::CleanCursorStack)); // Clear cursor
-    self.items.push(InputAction::new(self.tick, PID, InputActionData::QuickBarSetSlot(QuickBarSetSlotParameters { location: 0, item_to_use: Slot::from_nothing() }))); // Clear quickbar slot
+    self.items.push(InputAction::new(self.tick, PID, InputActionData::Build(BuildParameters { position, direction, created_by_moving: false, build_by_moving_start_position: None, flags: 0, }))); // Build item from cursor
+    self.items.push(InputAction::new(self.tick, PID, InputActionData::ClearCursor)); // Clear cursor
+    self.items.push(InputAction::new(self.tick, PID, InputActionData::QuickBarSetSlot(QuickBarSetSlotParameters { target_quick_bar_slot: 0, item_to_use: ItemStackTargetSpecification::from_nothing(), currently_selected_quick_bar_slot: 65535 }))); // Clear quickbar slot
     self
   }
 
   pub fn add_item(mut self, item: Item, amount: usize, pos: MapPosition) -> Self {
-    self.items.push(InputAction::new(self.tick, PID, InputActionData::SetFilter(SetFilterParameters { target: Slot::from_quick_bar(0, 0), filter: item, }))); // Configure quickbar slot
+    self.items.push(InputAction::new(self.tick, PID, InputActionData::SetFilter(SetFilterParameters { target: ItemStackTargetSpecification::from_quick_bar(0, 0), filter: item, }))); // Configure quickbar slot
     self.items.push(InputAction::new(self.tick, PID, InputActionData::QuickBarPickSlot(QuickBarPickSlotParameters { location: 0, pick_ghost_cursor: false, cursor_split: false, }))); // Select quickbar into cursor
     self.items.push(InputAction::new(self.tick, PID, InputActionData::SelectedEntityChanged(pos))); // Select entity
     for _ in 0..amount {
       self.items.push(InputAction::new(self.tick, PID, InputActionData::DropItem(pos)));
     }
     self.items.push(InputAction::new(self.tick, PID, InputActionData::SelectedEntityCleared)); // Clear selection
-    self.items.push(InputAction::new(self.tick, PID, InputActionData::CleanCursorStack)); // Clear cursor
-    self.items.push(InputAction::new(self.tick, PID, InputActionData::QuickBarSetSlot(QuickBarSetSlotParameters { location: 0, item_to_use: Slot::from_nothing() }))); // Clear quickbar slot
+    self.items.push(InputAction::new(self.tick, PID, InputActionData::ClearCursor)); // Clear cursor
+    self.items.push(InputAction::new(self.tick, PID, InputActionData::QuickBarSetSlot(QuickBarSetSlotParameters { target_quick_bar_slot: 0, item_to_use: ItemStackTargetSpecification::from_nothing(), currently_selected_quick_bar_slot: 65535 }))); // Clear quickbar slot
     self
   }
 
   pub fn add_fuel(mut self, item: Item, amount: usize, pos: MapPosition) -> Self {
-    self.items.push(InputAction::new(self.tick, PID, InputActionData::SetFilter(SetFilterParameters { target: Slot::from_quick_bar(0, 0), filter: item, }))); // Configure quickbar slot
+    self.items.push(InputAction::new(self.tick, PID, InputActionData::SetFilter(SetFilterParameters { target: ItemStackTargetSpecification::from_quick_bar(0, 0), filter: item, }))); // Configure quickbar slot
     self.items.push(InputAction::new(self.tick, PID, InputActionData::QuickBarPickSlot(QuickBarPickSlotParameters { location: 0, pick_ghost_cursor: false, cursor_split: false, }))); // Select quickbar into cursor
     self.items.push(InputAction::new(self.tick, PID, InputActionData::SelectedEntityChanged(pos))); // Select entity
     self.items.push(InputAction::new(self.tick, PID, InputActionData::OpenGui)); // Open GUI
     for _ in 0..amount {
-      self.items.push(InputAction::new(self.tick, PID, InputActionData::CursorSplit(Slot::from_fuel(0))));
+      self.items.push(InputAction::new(self.tick, PID, InputActionData::CursorSplit(ItemStackTargetSpecification::from_fuel(0))));
     }
     self.items.push(InputAction::new(self.tick, PID, InputActionData::CloseGui)); // Close GUI
     self.items.push(InputAction::new(self.tick, PID, InputActionData::SelectedEntityCleared)); // Clear selection
-    self.items.push(InputAction::new(self.tick, PID, InputActionData::CleanCursorStack)); // Clear cursor
-    self.items.push(InputAction::new(self.tick, PID, InputActionData::QuickBarSetSlot(QuickBarSetSlotParameters { location: 0, item_to_use: Slot::from_nothing() }))); // Clear quickbar slot
+    self.items.push(InputAction::new(self.tick, PID, InputActionData::ClearCursor)); // Clear cursor
+    self.items.push(InputAction::new(self.tick, PID, InputActionData::QuickBarSetSlot(QuickBarSetSlotParameters { target_quick_bar_slot: 0, item_to_use: ItemStackTargetSpecification::from_nothing(), currently_selected_quick_bar_slot: 65535 }))); // Clear quickbar slot
     self
   }
 
   #[allow(dead_code)]
   pub fn add_input(mut self, item: Item, amount: usize, pos: MapPosition) -> Self {
-    self.items.push(InputAction::new(self.tick, PID, InputActionData::SetFilter(SetFilterParameters { target: Slot::from_quick_bar(0, 0), filter: item, }))); // Configure quickbar slot
+    self.items.push(InputAction::new(self.tick, PID, InputActionData::SetFilter(SetFilterParameters { target: ItemStackTargetSpecification::from_quick_bar(0, 0), filter: item, }))); // Configure quickbar slot
     self.items.push(InputAction::new(self.tick, PID, InputActionData::QuickBarPickSlot(QuickBarPickSlotParameters { location: 0, pick_ghost_cursor: false, cursor_split: false, }))); // Select quickbar into cursor
     self.items.push(InputAction::new(self.tick, PID, InputActionData::SelectedEntityChanged(pos))); // Select entity
     self.items.push(InputAction::new(self.tick, PID, InputActionData::OpenGui)); // Open GUI
     for _ in 0..amount {
-      self.items.push(InputAction::new(self.tick, PID, InputActionData::CursorSplit(Slot::from_machine_input(0))));
+      self.items.push(InputAction::new(self.tick, PID, InputActionData::CursorSplit(ItemStackTargetSpecification::from_machine_input(0))));
     }
     self.items.push(InputAction::new(self.tick, PID, InputActionData::CloseGui)); // Close GUI
     self.items.push(InputAction::new(self.tick, PID, InputActionData::SelectedEntityCleared)); // Clear selection
-    self.items.push(InputAction::new(self.tick, PID, InputActionData::CleanCursorStack)); // Clear cursor
-    self.items.push(InputAction::new(self.tick, PID, InputActionData::QuickBarSetSlot(QuickBarSetSlotParameters { location: 0, item_to_use: Slot::from_nothing() }))); // Clear quickbar slot
+    self.items.push(InputAction::new(self.tick, PID, InputActionData::ClearCursor)); // Clear cursor
+    self.items.push(InputAction::new(self.tick, PID, InputActionData::QuickBarSetSlot(QuickBarSetSlotParameters { target_quick_bar_slot: 0, item_to_use: ItemStackTargetSpecification::from_nothing(), currently_selected_quick_bar_slot: 65535 }))); // Clear quickbar slot
     self
   }
 
