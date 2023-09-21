@@ -9,12 +9,16 @@ use std::num::TryFromIntError;
 use enum_primitive_derive::Primitive;
 use factorio_serialize_derive::MapReadWriteEnumU8;
 use factorio_serialize_derive::MapReadWriteStruct;
+use factorio_serialize_derive::MapReadWriteTaggedUnion;
 use num_traits::FromPrimitive;
 use num_traits::ToPrimitive;
 
 use crate::Reader;
 use crate::Result;
 use crate::Writer;
+use crate::constants::Achievement;
+use crate::constants::Entity;
+use crate::constants::Tile;
 
 
 pub struct MapData {
@@ -442,6 +446,186 @@ pub struct Map {
   linked_inventories: [LinkedInventories; 3],  // length determined by number of forces
   #[vec_u16] tiles_need_correction: Vec<u8>,
   #[vec_u32] surfaces: Vec<Surface>,
+  transport_line_manager: TransportLineManager,
+  surface_delete_requests: Vec<SurfaceIndex>,
+  console_command_used: bool,
+  editor_used: bool,
+  tutorial_triggers_enabled: bool,
+  last_tick_warned_about_console_command_disabling_achievements: i32,
+  last_tick_warned_about_editor_disabling_achievements: i32,
+  last_tick_warned_about_cheat_disabling_achievements: i32,
+  is_loaded_in_multiplayer: bool,
+  remove_all_players: bool,
+  #[assert_eq(0)] players: u32,  // Vec<Player>
+  #[assert_eq(0)] fake_players: u8,  // Vec<Player>
+  #[assert_eq(0)] applied_migrations: u8,  // Vec<Migration>
+  game_speed_paused: bool,
+  game_speed: f64,
+  shared_achievement_stats: AchievementStats,
+  blueprint_library: BlueprintLibrary,
+  mute_programmable_speaker: bool,
+  draw_resource_selection: bool,
+  enemy_has_vision_on_mines: bool,
+  dispatched_initial_chunks: bool,
+  permission_groups: PermissionGroups,
+  history: ScenarioHistory,
+  saved_special_items: MapSavedSpecialItems,
+  autosave_enabled: bool,
+  save_helpers: SaveHelpers,
+}
+
+#[derive(Debug, MapReadWriteStruct)]
+pub struct SaveHelpers {
+  unknown: [u8; 53]
+}
+
+#[derive(Debug, MapReadWriteStruct)]
+pub struct MapSavedSpecialItems {
+  #[assert_eq(0)] saved_special_items: u32,  // Vec<>
+  #[assert_eq(0)] map_ids_to_ref_counts: u8,  // Vec<>
+  #[assert_eq(0)] map_ids_to_keepalive_ticks: u8,  // Vec<>
+  next_id: u32,
+}
+
+#[derive(Debug, MapReadWriteStruct)]
+pub struct ScenarioHistory {
+  steps: Vec<ScenarioHistoryStep>,
+}
+
+#[derive(Debug, MapReadWriteStruct)]
+pub struct ScenarioHistoryStep {
+  changes: Vec<ScenarioHistoryChangeItem>,
+}
+
+#[derive(Debug)]
+enum ScenarioHistoryChangeItem {
+  VersionChanged(ApplicationVersion),
+  ModAdded(ModId),
+  ModRemoved(ModId),
+  ModUpdated(ModId),
+}
+impl MapReadWrite for ScenarioHistoryChangeItem {
+  fn map_read<R: BufRead + Seek>(input: &mut MapDeserialiser<R>) -> Result<Self> {
+    match u8::map_read(input)? {
+      0 => Ok(ScenarioHistoryChangeItem::VersionChanged(ApplicationVersion::map_read(input)?)),
+      1 => Ok(ScenarioHistoryChangeItem::ModAdded(ModId::map_read(input)?)),
+      2 => Ok(ScenarioHistoryChangeItem::ModRemoved(ModId::map_read(input)?)),
+      3 => Ok(ScenarioHistoryChangeItem::ModUpdated(ModId::map_read(input)?)),
+      x => Err(input.stream.error_at(format!("unknown ScenarioHistoryChangeItem type {}", x), 1)),
+    }
+  }
+  fn map_write(&self, input: &mut MapSerialiser) -> Result<()> {
+    match self {
+      ScenarioHistoryChangeItem::VersionChanged(i) => { 0_u8.map_write(input)?; i.map_write(input) }
+      ScenarioHistoryChangeItem::ModAdded(i) => { 1_u8.map_write(input)?; i.map_write(input) }
+      ScenarioHistoryChangeItem::ModRemoved(i) => { 1_u8.map_write(input)?; i.map_write(input) }
+      ScenarioHistoryChangeItem::ModUpdated(i) => { 1_u8.map_write(input)?; i.map_write(input) }
+    }
+  }
+}
+
+#[derive(Debug, MapReadWriteStruct)]
+pub struct PermissionGroups {
+  next_group_id: u32,
+  #[vec_u32] groups: Vec<PermissionGroup>,
+}
+
+#[derive(Debug, MapReadWriteStruct)]
+pub struct PermissionGroup {
+  targeter: Option<u32>,
+  id: u32,
+  name: String,
+  #[vec_u32] permissions: Vec<String>,
+  players: Vec<u32>,
+}
+
+#[derive(Debug, MapReadWriteStruct)]
+pub struct BlueprintLibrary {
+  game_shelf: BlueprintShelf,
+  #[assert_eq(0)] player_shelves: u32, // Vec<>
+  #[assert_eq(0)] cursor_blueprint_record_ids: u8, // Vec<>
+  #[assert_eq(0)] transfer_queue: u32,  // Vec<>
+  unknown_blueprint: BlueprintRecordId,
+}
+
+#[derive(Debug, MapReadWriteStruct)]
+pub struct BlueprintRecordId {
+  player_index: u16,
+  id: u32,
+}
+
+#[derive(Debug, MapReadWriteStruct)]
+pub struct BlueprintShelf {
+  player_index: u16,
+  next_record_id: u32,
+  timestamp: u32,
+  synchronized: bool,
+  #[assert_eq(0)] records: u32, // Vec<Option<>>
+}
+
+#[derive(Debug)]
+pub struct AchievementStats {
+  achievements: Vec<(Achievement, AchievementData)>,
+}
+impl MapReadWrite for AchievementStats {
+  fn map_read<R: BufRead + Seek>(input: &mut MapDeserialiser<R>) -> Result<Self> {
+    let achievements_len = u32::map_read(input)?;
+    let mut achievements = vec![];
+    for _ in 0..achievements_len {
+      let action_type_pos = input.stream.position();
+      let achievement = Achievement::map_read(input)?;
+      achievements.push((achievement, AchievementData::map_read(achievement, action_type_pos, input)?));
+      println!("Read achievement {:?}", achievements.last());
+    }
+    
+    Ok(AchievementStats { achievements })
+  }
+  fn map_write(&self, input: &mut MapSerialiser) -> Result<()> {
+    (self.achievements.len() as u32).map_write(input)?;
+    for (achievement, achievement_data) in &self.achievements {
+      achievement.map_write(input)?;
+      achievement_data.map_write(input)?;
+    }
+
+    Ok(())
+  }
+}
+
+#[derive(Debug, MapReadWriteTaggedUnion)]
+#[tag_type(Achievement)]
+pub enum AchievementData {
+  YouAreDoingItRight(ConstructWithRobotsAchievement),
+  LazyBastard(DontCraftManuallyAchievement),
+  SteamAllTheWay(DontUseEntityInEnergyProductionAchievement),
+  RainingBullets(DontBuildEntityAchievement),
+  LogisticNetworkEmbargo(DontBuildEntityAchievement),
+}
+
+#[derive(Debug, MapReadWriteStruct)]
+pub struct DontBuildEntityAchievement {
+  build: u32,
+}
+
+#[derive(Debug, MapReadWriteStruct)]
+pub struct DontUseEntityInEnergyProductionAchievement {
+  produced: f64,
+}
+
+#[derive(Debug, MapReadWriteStruct)]
+pub struct DontCraftManuallyAchievement {
+  crafted: f64,
+}
+
+#[derive(Debug, MapReadWriteStruct)]
+pub struct ConstructWithRobotsAchievement {
+  constructed_with_robots: u32,
+  constructed_manually: u32,
+}
+
+#[derive(Debug, MapReadWriteStruct)]
+pub struct TransportLineManager {
+  next_remerge_tie_breaker: u32,
+  #[assert_eq(0)] transport_line_records: u32,  // Vec<>
 }
 
 #[derive(Debug, MapReadWriteStruct)]
@@ -1410,26 +1594,267 @@ pub struct Inventory {
   hand_position: i16,
 }
 
-#[derive(Debug, MapReadWriteStruct)]
+#[derive(Debug)]
 pub struct Surface {
   index: SurfaceIndex,
-  #[assert_eq(0)] active_entities_serialisation_helper: u32,
-  #[vec_u32] chunks: Vec<Chunk>,
+  active_entities_serialisation_helper: u32,
+  chunks: Vec<Chunk>,
   compiled_map_gen_settings: CompiledMapGenSettings,
-  #[assert_eq(0)] path_finders: u32,  // Vec<>
-  #[vec_u32] commanders: Vec<Option<Commander>>,
+  path_finders: u32,  // Vec<>
+  commanders: Vec<Option<Commander>>,
   map_generation_manager: MapGenerationManager,
+  active_chunks: Vec<ChunkPosition>,
+  polluted_chunks: [Vec<ChunkPosition>; 0x40],
+  name: String,
+  deletable: bool,
+  show_clouds: bool,
+  clean_surface_parameters: Option<bool>,
+  day_time: DayTime,
+  wind: Wind,
+  chunk_delete_requests: Vec<ChunkPosition>,
+  brightness_visual_weights: Color,
+}
+impl MapReadWrite for Surface {
+  fn map_read<R: BufRead + Seek>(input: &mut MapDeserialiser<R>) -> Result<Self> {
+    let index = SurfaceIndex::map_read(input)?;
+    let active_entities_serialisation_helper = u32::map_read(input)?; assert_eq!(active_entities_serialisation_helper, 0);
+    let chunks_len = u32::map_read(input)?;
+    let mut chunks: Vec<Chunk> = (0..chunks_len).map(|_| Chunk::initial_read(input)).collect::<Result<_>>()?;
+    let compiled_map_gen_settings = CompiledMapGenSettings::map_read(input)?;
+    let path_finders = u32::map_read(input)?; assert_eq!(path_finders, 0);
+    let commanders = map_read_vec_u32::<_, Option<Commander>>(input)?;
+    let map_generation_manager = MapGenerationManager::map_read(input)?;
+    
+    for i in 0..chunks_len as usize {
+      chunks[i].load(input)?;
+    }
+
+    let active_chunks = map_read_vec_u32(input)?;
+    let polluted_chunks = (0..0x40).map(|_| map_read_vec_u32(input)).collect::<Result<Vec<Vec<ChunkPosition>>>>()?.try_into().unwrap();
+
+    assert_eq!(u32::map_read(input)?, 0); // ParticleSurface
+    let name = String::map_read(input)?;
+    assert_eq!(u32::map_read(input)?, 0); // HiddenTiles
+    let deletable = bool::map_read(input)?;
+    let show_clouds = bool::map_read(input)?;
+    let clean_surface_parameters = Option::map_read(input)?;
+    let day_time = DayTime::map_read(input)?;
+    let wind = Wind::map_read(input)?;
+    let chunk_delete_requests = Vec::map_read(input)?;
+    let brightness_visual_weights = Color::map_read(input)?;
+
+    Ok(Surface { index, active_entities_serialisation_helper, chunks, compiled_map_gen_settings, path_finders, commanders, map_generation_manager, active_chunks, polluted_chunks, name, deletable, show_clouds, clean_surface_parameters, day_time, wind, chunk_delete_requests, brightness_visual_weights })
+  }
+  fn map_write(&self, input: &mut MapSerialiser) -> Result<()> {
+    self.index.map_write(input)?;
+    self.active_entities_serialisation_helper.map_write(input)?;
+    let chunks_len = self.chunks.len() as u32;
+    chunks_len.map_write(input)?;
+    self.chunks.iter().map(|c| c.initial_write(input)).collect::<Result<_>>()?;
+    self.compiled_map_gen_settings.map_write(input)?;
+    self.path_finders.map_write(input)?;
+    map_write_vec_u32(&self.commanders, input)?;
+    self.map_generation_manager.map_write(input)?;
+
+    for i in 0..chunks_len as usize {
+      self.chunks[i].save(input)?;
+    }
+
+    map_write_vec_u32(&self.active_chunks, input)?;
+    for p in &self.polluted_chunks { map_write_vec_u32(p, input)? }
+
+    0_u32.map_write(input)?; // ParticleSurface
+    self.name.map_write(input)?;
+    0_u32.map_write(input)?; // HiddenTiles
+    self.deletable.map_write(input)?;
+    self.show_clouds.map_write(input)?;
+    self.clean_surface_parameters.map_write(input)?;
+    self.day_time.map_write(input)?;
+    self.wind.map_write(input)?;
+    self.chunk_delete_requests.map_write(input)?;
+    self.brightness_visual_weights.map_write(input)?;
+
+    Ok(())
+  }
 }
 
 #[derive(Debug, MapReadWriteStruct)]
+pub struct Wind {
+  speed: f64,
+  orientation: f32,
+  orientation_change: f64,
+  cumulative_offset: Vector,
+  clouds_offset: Vector,
+  cumulative_offset_history: [Vector; 120],
+}
+
+#[derive(Debug, MapReadWriteStruct)]
+pub struct Vector {
+  x: f64,
+  y: f64,
+}
+
+#[derive(Debug, MapReadWriteStruct)]
+pub struct DayTime {
+  dusk: f64,
+  dawn: f64,
+  evening: f64,
+  morning: f64,
+  ticks_per_day: f64,
+  position: f64,
+  frozen: bool,
+  max_darkness: f64,
+  solar_power_multiplier: f64,
+}
+
+#[derive(Debug)]
 pub struct Chunk {
   position: ChunkPosition,
   generated_status: u8,  // Enum
   military_targets_len: u8,
-  #[assert_eq(0)] active_entities_serialisation_helper: u32,
-  #[vec_u32] planned_update_counts_to_be_loaded: Vec<u32>,
-  #[assert_eq(0)] active_when_enemy_is_around: u32,
+  active_entities_serialisation_helper: u32,
+  planned_update_counts_to_be_loaded: Vec<u32>,
+  active_when_enemy_is_around: u32,
+
+  tiles: Vec<Tile>,
+  entities_to_be_inserted_before_setup: Vec<(Entity, EntityData)>,
+  tick_of_optional_activation: u32,
+  tick_of_last_change_that_could_affect_charting: u32,
+  pollution: f64,
 }
+impl Chunk {
+  fn initial_read<R: BufRead + Seek>(input: &mut MapDeserialiser<R>) -> Result<Self> {
+    let position = ChunkPosition::map_read(input)?;
+    let generated_status = u8::map_read(input)?;
+    let military_targets_len = u8::map_read(input)?;
+    let active_entities_serialisation_helper = u32::map_read(input)?; assert_eq!(active_entities_serialisation_helper, 0);
+    let planned_update_counts_to_be_loaded = map_read_vec_u32::<_, u32>(input)?;
+    let active_when_enemy_is_around = u32::map_read(input)?; assert_eq!(active_when_enemy_is_around, 0);
+
+    Ok(Chunk { position, generated_status, military_targets_len, active_entities_serialisation_helper, planned_update_counts_to_be_loaded,
+      active_when_enemy_is_around, tiles: vec![], entities_to_be_inserted_before_setup: vec![], tick_of_optional_activation: 0, tick_of_last_change_that_could_affect_charting: 0, pollution: 0.0 })
+  }
+  fn initial_write(&self, input: &mut MapSerialiser) -> Result<()> {
+    self.position.map_write(input)?;
+    self.generated_status.map_write(input)?;
+    self.military_targets_len.map_write(input)?;
+    self.active_entities_serialisation_helper.map_write(input)?;
+    map_write_vec_u32(&self.planned_update_counts_to_be_loaded, input)?;
+    self.active_when_enemy_is_around.map_write(input)?;
+    
+    Ok(())
+  }
+  fn load<R: BufRead + Seek>(&mut self, input: &mut MapDeserialiser<R>) -> Result<()> {
+    println!("{:?}", self.position);
+    if self.generated_status > 9 {
+      self.tiles = map_read_vec_u16(input)?;
+    }
+    loop {
+      let action_type_pos = input.stream.position();
+      let next_entity = u16::map_read(input)?;
+      if next_entity == 0 { break; }
+      let entity = Entity::from_u16(next_entity).unwrap();
+      self.entities_to_be_inserted_before_setup.push((entity, EntityData::map_read(entity, action_type_pos, input)?));
+      println!("Read entity {:?}", self.entities_to_be_inserted_before_setup.last());
+    }
+    self.tick_of_optional_activation = u32::map_read(input)?;
+    self.tick_of_last_change_that_could_affect_charting = u32::map_read(input)?;
+    self.pollution = f64::map_read(input)?;
+    assert_eq!(u8::map_read(input)?, 0); // trivial_smokes
+    assert_eq!(u8::map_read(input)?, 0); // decoratives
+    assert_eq!(u32::map_read(input)?, 0); // perimeter_components
+    assert_eq!(u32::map_read(input)?, 0); // meighbor_components
+
+    Ok(())
+  }
+  fn save(&self, input: &mut MapSerialiser) -> Result<()> {
+    if self.generated_status > 9 {
+      map_write_vec_u16(&self.tiles, input)?;
+    }
+    for (entity, entity_data) in &self.entities_to_be_inserted_before_setup {
+      entity.map_write(input)?;
+      entity_data.map_write(input)?;
+    }
+    0_u16.map_write(input)?;
+
+    self.tick_of_optional_activation.map_write(input)?;
+    self.tick_of_last_change_that_could_affect_charting.map_write(input)?;
+    self.pollution.map_write(input)?;
+    0_u8.map_write(input)?; // trivial_smokes
+    0_u8.map_write(input)?; // decoratives
+    0_u32.map_write(input)?; // perimeter_components
+    0_u32.map_write(input)?; // meighbor_components
+
+    Ok(())
+  }
+}
+
+#[derive(Debug, MapReadWriteTaggedUnion)]
+#[tag_type(Entity)]
+pub enum EntityData {
+  Nothing,
+  Coal(ResourceEntity),
+  CopperOre(ResourceEntity),
+  IronOre(ResourceEntity),
+  Stone(ResourceEntity),
+  RockHuge(SimpleEntity),
+  DryTree(Tree),
+}
+
+#[derive(Debug, MapReadWriteStruct)]
+pub struct Tree {
+  entity: EntityWithHealth,
+  tree_data: u16,  // graphics variations
+  burn_progress: u8,
+}
+
+#[derive(Debug, MapReadWriteStruct)]
+pub struct ResourceEntity {
+  entity: EntityCommon,
+  resource_amount: u32,
+  initial_amount: Option<u32>,
+  variation: u8,
+}
+
+#[derive(Debug, MapReadWriteStruct)]
+pub struct SimpleEntity {
+  entity: EntityWithHealth,
+  variation: u8,  // whether this is present depends on the number of graphics variantions, not sure how to predict that
+}
+
+#[derive(Debug)]
+pub struct EntityWithHealth {
+  entity: EntityCommon,
+  health: f32,
+  damage_to_be_taken: f32,
+  upgrade_target: Entity,
+}
+impl MapReadWrite for EntityWithHealth {
+  fn map_read<R: BufRead + Seek>(input: &mut MapDeserialiser<R>) -> Result<Self> {
+    let entity = EntityCommon::map_read(input)?;
+    let health = if entity.usage_bit_mask & 0x2000 != 0 { f32::map_read(input)? } else { 0.0 };
+    let damage_to_be_taken = if entity.usage_bit_mask & 0x2000 != 0 { f32::map_read(input)? } else { 0.0 };
+    let upgrade_target = if entity.usage_bit_mask & 0x1 != 0 { Entity::map_read(input)? } else { Entity::Nothing };
+
+    Ok(EntityWithHealth { entity, health, damage_to_be_taken, upgrade_target })
+  }
+  fn map_write(&self, input: &mut MapSerialiser) -> Result<()> {
+    self.entity.map_write(input)?;
+    if self.entity.usage_bit_mask & 0x2000 != 0 { self.health.map_write(input)?; }
+    if self.entity.usage_bit_mask & 0x2000 != 0 { self.damage_to_be_taken.map_write(input)?; }
+    if self.entity.usage_bit_mask & 0x1 != 0 { self.upgrade_target.map_write(input)?; }
+
+    Ok(())
+  }
+}
+
+#[derive(Debug, MapReadWriteStruct)]
+pub struct EntityCommon {
+  position: MapPosition,
+  usage_bit_mask: u16,
+  #[conditional_or_default(usage_bit_mask & 0x1000 != 0)] targeter: Option<u32>,
+}
+
 
 #[derive(Debug, MapReadWriteStruct)]
 pub struct CompiledMapGenSettings {

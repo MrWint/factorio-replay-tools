@@ -1,5 +1,5 @@
 use enum_primitive_derive::Primitive;
-use factorio_serialize_derive::{ReplayReadWriteEnumU16, ReplayReadWriteEnumU8};
+use factorio_serialize_derive::{ReplayReadWriteEnumU16, ReplayReadWriteEnumU8, MapReadWriteEnumU8, MapReadWriteEnumU16};
 use num_traits::{FromPrimitive, ToPrimitive};
 
 
@@ -9,7 +9,7 @@ use num_traits::{FromPrimitive, ToPrimitive};
 
 // Version: 1.1.87
 // Extraction method: main::export_prototypes
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReplayReadWriteEnumU16)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReplayReadWriteEnumU16, MapReadWriteEnumU16)]
 pub enum Achievement {
   GettingOnTrack = 1,
   EcoUnfriendly = 2,
@@ -102,7 +102,8 @@ pub enum Decorative {
 
 // Version: 1.1.87
 // Extraction method: main::export_prototypes
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReplayReadWriteEnumU16)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReplayReadWriteEnumU16, MapReadWriteEnumU16)]
+
 pub enum Entity {
   Nothing = 0,
   Accumulator = 1,
@@ -1347,7 +1348,7 @@ pub enum Technology {
 
 // Version: 1.1.87
 // Extraction method: main::export_prototypes
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReplayReadWriteEnumU8)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReplayReadWriteEnumU8, MapReadWriteEnumU8)]
 pub enum Tile {
   Nothing = 0,
   StonePath = 1,

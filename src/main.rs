@@ -17,7 +17,7 @@ fn main() {
   // test_read_map_data();
   // load_and_save_map_test("freeplay1187_replay_2");
   // load_and_save_map_test("scenario_save_replay");
-  // load_and_save_map_test("scenario_save_replay_2");
+  load_and_save_map_test("scenario_save_replay_2");
   // load_and_save_replay_test("freeplay1187_replay_2");
   // load_and_save_replay_test("scenario_save_replay_2");
   // load_and_save_replay_test("1187-20230720-1-35-08");
@@ -25,7 +25,7 @@ fn main() {
   // assemble_test_tas();
   // assemble_automation_tas();
 
-  export_prototypes("scenario_save_replay_2");
+  // export_prototypes("scenario_save_replay_2");
 }
 
 #[allow(dead_code)]

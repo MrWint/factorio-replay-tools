@@ -5,7 +5,7 @@ use quote::quote;
 use syn::{DeriveInput, parse_macro_input, Expr};
 
 
-#[proc_macro_derive(MapReadWriteStruct, attributes(assert_eq, vec_u16, vec_u32, space_optimized))]
+#[proc_macro_derive(MapReadWriteStruct, attributes(assert_eq, conditional_or_default, vec_u16, vec_u32, space_optimized))]
 pub fn derive_mapreadwrite(input: TokenStream) -> TokenStream {
   let input = parse_macro_input!(input as DeriveInput);
 
@@ -23,10 +23,13 @@ pub fn derive_mapreadwrite(input: TokenStream) -> TokenStream {
         let name = field.ident.as_ref().unwrap();
         let ty = &field.ty;
         let mut assert_eq_val = None;
+        let mut conditional_val = None;
         let mut read_tokens = quote! { let #name = <#ty>::map_read(input)?; };
         for attribute in &field.attrs {
           if attribute.path().is_ident("assert_eq") {
             assert_eq_val = Some(attribute.parse_args::<Expr>().unwrap());
+          } else if attribute.path().is_ident("conditional_or_default") {
+            conditional_val = Some(attribute.parse_args::<Expr>().unwrap());
           } else if attribute.path().is_ident("space_optimized") {
             read_tokens = match ty {
               syn::Type::Path(path_type) if path_type.path.is_ident("u16") => quote! { let #name = input.stream.read_opt_u16()?; },
@@ -55,16 +58,30 @@ pub fn derive_mapreadwrite(input: TokenStream) -> TokenStream {
           }
         }
 
+        if let Some(conditional_val) = conditional_val {
+          read_tokens = quote! {
+            let #name = if #conditional_val {
+              #read_tokens
+              #name
+            } else {
+              <#ty>::default()
+            };
+          }
+        }
+
         read_tokens
       }).collect();
       let map_write_tokens: proc_macro2::TokenStream = punctuated.iter().map(|field| {
         let name = field.ident.as_ref().unwrap();
         let ty = &field.ty;
         let mut assert_eq_val = None;
+        let mut conditional_val = None;
         let mut write_tokens = quote! { self.#name.map_write(w)?; };
         for attribute in &field.attrs {
           if attribute.path().is_ident("assert_eq") {
             assert_eq_val = Some(attribute.parse_args::<Expr>().unwrap());
+          } else if attribute.path().is_ident("conditional_or_default") {
+            conditional_val = Some(attribute.parse_args::<Expr>().unwrap());
           } else if attribute.path().is_ident("space_optimized") {
             write_tokens = match ty {
               syn::Type::Path(path_type) if path_type.path.is_ident("u16") => quote! { w.stream.write_opt_u16(self.#name)?; },
@@ -90,6 +107,14 @@ pub fn derive_mapreadwrite(input: TokenStream) -> TokenStream {
           write_tokens = quote! {
             assert_eq!(self.#name, #assert_eq_val, "{} is not {}", #ident_name, #assert_eq_val);
             #write_tokens
+          }
+        }
+
+        if let Some(conditional_val) = conditional_val {
+          write_tokens = quote! {
+            if self.#conditional_val {
+              #write_tokens
+            }
           }
         }
 
@@ -140,6 +165,86 @@ pub fn map_derive_enum_u8(input: TokenStream) -> TokenStream {
   };
 
   TokenStream::from(expanded)
+}
+
+#[proc_macro_derive(MapReadWriteEnumU16)]
+pub fn map_derive_enum_u16(input: TokenStream) -> TokenStream {
+  let input = parse_macro_input!(input as DeriveInput);
+  let name = &input.ident;
+
+  let expanded = quote! {
+    impl crate::map::MapReadWrite for #name {
+      fn map_read<R: std::io::BufRead + std::io::Seek>(r: &mut crate::map::MapDeserialiser<R>) -> crate::Result<Self> {
+        let value = r.stream.read_u16()?;
+        Self::from_u16(value).ok_or_else(|| r.stream.error_at(format!("value {:#x} is not a valid {}", value, stringify!(#name)), 1))
+      }
+      fn map_write(&self, w: &mut crate::map::MapSerialiser) -> crate::Result<()> {
+        w.stream.write_u16(self.to_u16().unwrap())
+      }
+    }
+  };
+
+  TokenStream::from(expanded)
+}
+#[proc_macro_derive(MapReadWriteTaggedUnion, attributes(tag_type))]
+pub fn map_derive_readwrite_union(input: TokenStream) -> TokenStream {
+  let input = parse_macro_input!(input as DeriveInput);
+  let enum_ident = &input.ident;
+
+  let tag_type: syn::Type = input.attrs.iter().find(|attr| attr.path().is_ident("tag_type")).expect("No tag_type attribute found on MapReadWriteTaggedUnion").parse_args().expect("Unable to parse tag_type as identifier");
+
+  match &input.data {
+    syn::Data::Enum(data) => {
+      let read_tokens: proc_macro2::TokenStream = data.variants.iter().map(|variant| {
+        let name = &variant.ident;
+        match &variant.fields {
+          syn::Fields::Unit => quote! { #tag_type::#name => Ok(#enum_ident::#name), },
+          syn::Fields::Unnamed(f) => {
+            assert!(f.unnamed.len() == 1, "enum variant {} must contain exactly one unnamed field", input.ident);
+            let field_type = &f.unnamed.first().unwrap().ty;
+            quote! { #tag_type::#name => Ok(#enum_ident::#name(<#field_type>::map_read(r)?)), }
+          },
+          syn::Fields::Named(_) => panic!("Can't use MapReadWriteTaggedUnion on named enum variants."),
+        }
+      }).collect();
+      let write_tokens: proc_macro2::TokenStream = data.variants.iter().map(|variant| {
+        let name = &variant.ident;
+        match &variant.fields {
+          syn::Fields::Unit => quote! { #enum_ident::#name => Ok(()), },
+          syn::Fields::Unnamed(_) => quote! { #enum_ident::#name(enum_data) => enum_data.map_write(w), },
+          syn::Fields::Named(_) => panic!("Can't use MapReadWriteTaggedUnion on named enum variants."),
+        }
+      }).collect();
+      let to_tag_tokens: proc_macro2::TokenStream = data.variants.iter().map(|variant| {
+        let name = &variant.ident;
+        quote! { #enum_ident::#name { .. } => <#tag_type>::#name, }
+      }).collect();
+
+      let expanded = quote! {
+        impl #enum_ident {
+          fn map_read<R: std::io::BufRead + std::io::Seek>(action_type: #tag_type, action_type_pos: u64, r: &mut crate::map::MapDeserialiser<R>) -> crate::Result<Self> {
+            match action_type {
+              #read_tokens
+              _ => Err(crate::Error::custom(format!("Unsupported action type {:?}", action_type), action_type_pos)),
+            }
+          }
+          fn map_write(&self, w: &mut crate::map::MapSerialiser) -> crate::Result<()> {
+            match self {
+              #write_tokens
+            }
+          }
+          pub fn to_tag(&self) -> #tag_type {
+            match self {
+              #to_tag_tokens
+            }
+          }
+        }
+      };
+
+      TokenStream::from(expanded)
+    },
+    _ => panic!("MapReadWriteTaggedUnion on {} can only be used on enums.", stringify!(#name)),
+  }
 }
 
 
