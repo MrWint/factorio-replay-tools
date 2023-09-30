@@ -54,9 +54,9 @@ impl MapData {
 }
 impl std::fmt::Debug for MapData {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    writeln!(f, "map_version: {:?}", self.map_version)?;
-    writeln!(f, "scenario_execution_context: {:?}", self.scenario_execution_context)?;
-    writeln!(f, "map: {:?}", self.map)?;
+    writeln!(f, "map_version: ")?; self.map_version.fmt(f)?;
+    writeln!(f, "scenario_execution_context: ")?; self.scenario_execution_context.fmt(f)?;
+    writeln!(f, "map: ")?; self.map.fmt(f)?;
     Ok(())
   }
 }
@@ -87,7 +87,7 @@ pub struct MapSerialiser {
   pub last_saved_position: MapPosition,
 }
 impl MapSerialiser{
-  fn new(map_version: MapVersion) -> Result<MapSerialiser> {
+  pub fn new(map_version: MapVersion) -> Result<MapSerialiser> {
     let mut stream = Writer::new(Cursor::new(Vec::new()));
     map_version.write(&mut stream)?;
 
@@ -233,10 +233,10 @@ impl <A: MapReadWrite, B: MapReadWrite> MapReadWrite for (A, B) {
   }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MapVersion {
-  version: u64,
-  quality_version: bool,
+  pub version: u64,
+  pub quality_version: bool,
 }
 impl MapVersion {
   pub fn new<R: BufRead + Seek>(stream: &mut Reader<R>) -> Result<MapVersion> {
@@ -411,8 +411,8 @@ impl MapReadWrite for PropertyTree {
 
 #[derive(Debug, MapReadWriteStruct)]
 pub struct Map {
-  map_header: MapHeader,
-  map_gen_settings: MapGenSettings,
+  pub map_header: MapHeader,
+  pub map_gen_settings: MapGenSettings,
   map_settings: MapSettings,
   general_random_generator: RandomGenerator,
   ai_random_generator: RandomGenerator,
@@ -422,7 +422,7 @@ pub struct Map {
   entity_update_paused_state: EntityUpdatePausedState,
   pub prototype_migrations: PrototypeMigrationList,
 
-  loaded_prototype_migrations_definition: Vec<PrototypeMigrationListDefinitionMigration>,
+  pub loaded_prototype_migrations_definition: Vec<PrototypeMigrationListDefinitionMigration>,
   next_unit_number: u32,
   next_targetable_item_number: u32,
   next_script_pathfind_id: u32,
@@ -432,9 +432,9 @@ pub struct Map {
   next_unique_translation_request_id: u64,
   map_mod_settings: MapModSettings,
   train_manager: TrainManager,
-  force_manager: ForceManager,
+  pub force_manager: ForceManager,
   #[assert_eq(0)] circuit_networks: u32,  // Vec<CircuitNetwork>,
-  pollution_statistics: PollutionStatistics,
+  pub pollution_statistics: PollutionStatistics,
   #[assert_eq(0)] entity_tags: u32,  // Vec<(u32, String)>
   difficulty_specifications: DifficultySpecifications,
   extra_script_data: ExtraScriptData,
@@ -445,7 +445,7 @@ pub struct Map {
   #[assert_eq(0)] extra_script_data_inventories: u32, // Vec<...>,
   linked_inventories: [LinkedInventories; 3],  // length determined by number of forces
   #[vec_u16] tiles_need_correction: Vec<u8>,
-  #[vec_u32] surfaces: Vec<Surface>,
+  #[vec_u32] pub surfaces: Vec<Surface>,
   transport_line_manager: TransportLineManager,
   surface_delete_requests: Vec<SurfaceIndex>,
   console_command_used: bool,
@@ -461,14 +461,14 @@ pub struct Map {
   #[assert_eq(0)] applied_migrations: u8,  // Vec<Migration>
   game_speed_paused: bool,
   game_speed: f64,
-  shared_achievement_stats: AchievementStats,
+  pub shared_achievement_stats: AchievementStats,
   blueprint_library: BlueprintLibrary,
   mute_programmable_speaker: bool,
   draw_resource_selection: bool,
   enemy_has_vision_on_mines: bool,
   dispatched_initial_chunks: bool,
   permission_groups: PermissionGroups,
-  history: ScenarioHistory,
+  pub history: ScenarioHistory,
   saved_special_items: MapSavedSpecialItems,
   autosave_enabled: bool,
   save_helpers: SaveHelpers,
@@ -489,7 +489,7 @@ pub struct MapSavedSpecialItems {
 
 #[derive(Debug, MapReadWriteStruct)]
 pub struct ScenarioHistory {
-  steps: Vec<ScenarioHistoryStep>,
+  pub steps: Vec<ScenarioHistoryStep>,
 }
 
 #[derive(Debug, MapReadWriteStruct)]
@@ -518,8 +518,8 @@ impl MapReadWrite for ScenarioHistoryChangeItem {
     match self {
       ScenarioHistoryChangeItem::VersionChanged(i) => { 0_u8.map_write(input)?; i.map_write(input) }
       ScenarioHistoryChangeItem::ModAdded(i) => { 1_u8.map_write(input)?; i.map_write(input) }
-      ScenarioHistoryChangeItem::ModRemoved(i) => { 1_u8.map_write(input)?; i.map_write(input) }
-      ScenarioHistoryChangeItem::ModUpdated(i) => { 1_u8.map_write(input)?; i.map_write(input) }
+      ScenarioHistoryChangeItem::ModRemoved(i) => { 2_u8.map_write(input)?; i.map_write(input) }
+      ScenarioHistoryChangeItem::ModUpdated(i) => { 3_u8.map_write(input)?; i.map_write(input) }
     }
   }
 }
@@ -565,7 +565,7 @@ pub struct BlueprintShelf {
 
 #[derive(Debug)]
 pub struct AchievementStats {
-  achievements: Vec<(Achievement, AchievementData)>,
+  pub achievements: Vec<(Achievement, AchievementData)>,
 }
 impl MapReadWrite for AchievementStats {
   fn map_read<R: BufRead + Seek>(input: &mut MapDeserialiser<R>) -> Result<Self> {
@@ -575,7 +575,7 @@ impl MapReadWrite for AchievementStats {
       let action_type_pos = input.stream.position();
       let achievement = Achievement::map_read(input)?;
       achievements.push((achievement, AchievementData::map_read(achievement, action_type_pos, input)?));
-      println!("Read achievement {:?}", achievements.last());
+      // println!("Read achievement {:?}", achievements.last());
     }
     
     Ok(AchievementStats { achievements })
@@ -630,29 +630,29 @@ pub struct TransportLineManager {
 
 #[derive(Debug, MapReadWriteStruct)]
 pub struct MapHeader {
-  update_tick: u32,
-  entity_tick: u32,
-  ticks_played: u32,
+  pub update_tick: u32,
+  pub entity_tick: u32,
+  pub ticks_played: u32,
 }
 
 type MapGenSize = f32;
 
 #[derive(Debug, MapReadWriteStruct)]
 pub struct MapGenSettings {
-  segmentation: MapGenSize,
-  water_size: MapGenSize,
-  autoplace_controls: Vec<(String, FrequencySizeRichness)>,
-  autoplace_settings_per_type: Vec<(String, AutoplaceSettings)>,
-  default_enable_all_autoplace_controls: bool,
-  random_seed: u32,
-  width: u32,
-  height: u32,
-  area_to_generate_at_start: BoundingBox,
-  starting_area_size: MapGenSize,
-  peaceful_mode: bool,
-  starting_points: Vec<MapPosition>,
-  property_expression_names: Vec<(String, String)>,
-  cliff_placement_settings: CliffPlacementSettings,
+  pub segmentation: MapGenSize,
+  pub water_size: MapGenSize,
+  pub autoplace_controls: Vec<(String, FrequencySizeRichness)>,
+  pub autoplace_settings_per_type: Vec<(String, AutoplaceSettings)>,
+  pub default_enable_all_autoplace_controls: bool,
+  pub random_seed: u32,
+  pub width: u32,
+  pub height: u32,
+  pub area_to_generate_at_start: BoundingBox,
+  pub starting_area_size: MapGenSize,
+  pub peaceful_mode: bool,
+  pub starting_points: Vec<MapPosition>,
+  pub property_expression_names: Vec<(String, String)>,
+  pub cliff_placement_settings: CliffPlacementSettings,
 }
 
 #[derive(Debug, MapReadWriteStruct)]
@@ -986,7 +986,7 @@ pub struct TrainManager {
 #[derive(Debug, MapReadWriteStruct)]
 pub struct ForceManager {
   #[assert_eq(3)] force_data_list_len: u32,
-  force_data_list: [ForceData; 3],
+  pub force_data_list: [ForceData; 3],
   #[assert_eq(0)] forces_to_delete: u32,  // Vec<(ForceID, ForceID)>
 }
 
@@ -1001,15 +1001,15 @@ pub struct ForceData {
   friendly_fire_enabled: bool,
   share_chart: bool,
   evolution_factor_data: EvolutionFactorData,
-  custom_prototypes: CustomPrototypes,
+  pub custom_prototypes: CustomPrototypes,
   research_enabled: bool,
   research_manager: ResearchManager,
   #[vec_u32] logistic_managers: Vec<Option<LogisticManager>>,
   #[vec_u32] construction_managers: Vec<Option<ConstructionManager>>,
-  ammo_damage_modifiers: Vec<f64>,
-  gun_speed_modifiers: Vec<f64>,
-  turret_attack_modifiers: Vec<f64>,
-  disabled_hand_crafting_recipes: Vec<u8>,
+  pub ammo_damage_modifiers: Vec<f64>,
+  pub gun_speed_modifiers: Vec<f64>,
+  pub turret_attack_modifiers: Vec<f64>,
+  pub disabled_hand_crafting_recipes: Vec<u8>,
   worker_robots_speed_modifier: f64,
   worker_robots_battery_modifier: f64,
   worker_robots_storage_bonus: f64,
@@ -1047,12 +1047,12 @@ pub struct ForceData {
   character_logistic_requests: bool,
   cease_fire: ForceSet,
   friends: ForceSet,
-  #[vec_u32] charts: Vec<(SurfaceIndex, Chart)>,
+  #[vec_u32] pub charts: Vec<(SurfaceIndex, Chart)>,
   #[assert_eq(0)] spawn_positions: u32,  // Vec<(SurfaceIndex, MapPosition)>
   #[assert_eq(0)] item_production_statistics: u8,  // Option<FlowStatistics>
   #[assert_eq(0)] fluid_production_statistics: u8,  // Option<FlowStatistics>
   #[assert_eq(0)] kill_count_statistics: u8,  // Option<FlowStatistics>
-  build_count_statistics: Option<BuildCountStatistics>,
+  pub build_count_statistics: Option<BuildCountStatistics>,
   custom_color: Color,
   rockets_launched: u32,
   #[assert_eq(0)] items_launched: u8,  // Vec<(u16, u32)>
@@ -1071,8 +1071,8 @@ pub struct EvolutionFactorData {
 
 #[derive(Debug, MapReadWriteStruct)]
 pub struct CustomPrototypes {
-  #[vec_u16] recipes: Vec<CustomPrototypesOption<Recipe>>,
-  #[vec_u16] technologies: Vec<CustomPrototypesOption<Technology>>,
+  #[vec_u16] pub recipes: Vec<CustomPrototypesOption<Recipe>>,
+  #[vec_u16] pub technologies: Vec<CustomPrototypesOption<Technology>>,
 }
 
 #[derive(Debug)]
@@ -1476,7 +1476,7 @@ pub struct SubChart {
   chart_tags: u32,  // Vec<>
   custom_chart_tags: u8,  // Vec<>
   pixels_commands: Vec<SubChartPixelCommand>,
-  unknown_u32: u32,
+  unknown_u32: u32,  // tick
 }
 
 #[derive(Debug)]
@@ -1485,36 +1485,36 @@ pub enum SubChartPixelCommand {
   ExistingPaletteColor { index: u8, len: u8 },
 }
 
-#[derive(Debug, MapReadWriteStruct)]
+#[derive(Clone, Debug, MapReadWriteStruct)]
 pub struct ChunkPosition {
-  x: i32,
-  y: i32,
+  pub x: i32,
+  pub y: i32,
 }
 
 #[derive(Debug, MapReadWriteStruct)]
-struct BuildCountStatistics {
+pub struct BuildCountStatistics {
   precision: [BuildCountStatisticsPrecision; 8],
   input_running_counts: Vec<(u16, u64)>,
   output_running_counts: Vec<(u16, u64)>,
 }
 
 #[derive(Debug, MapReadWriteStruct)]
-struct BuildCountStatisticsPrecision {
-  #[vec_u32] input_elements: Vec<BuildCountStatisticsPrecisionElements>,
-  #[vec_u32] output_elements: Vec<BuildCountStatisticsPrecisionElements>,
+pub struct BuildCountStatisticsPrecision {
+  #[vec_u32] pub input_elements: Vec<BuildCountStatisticsPrecisionElements>,
+  #[vec_u32] pub output_elements: Vec<BuildCountStatisticsPrecisionElements>,
 }
 
 #[derive(Debug, MapReadWriteStruct)]
-struct BuildCountStatisticsPrecisionElements {
+pub struct BuildCountStatisticsPrecisionElements {
   #[vec_u16] elements: Vec<f32>,
   f: f64,
 }
 
 #[derive(Debug, MapReadWriteStruct)]
-struct PollutionStatistics {
-  precision: [BuildCountStatisticsPrecision; 8],
-  input_running_counts: Vec<(u16, f64)>,
-  output_running_counts: Vec<(u16, f64)>,
+pub struct PollutionStatistics {
+  pub precision: [BuildCountStatisticsPrecision; 8],
+  pub input_running_counts: Vec<(u16, f64)>,
+  pub output_running_counts: Vec<(u16, f64)>,
 }
 
 #[derive(Debug, MapReadWriteStruct)]
@@ -1596,23 +1596,23 @@ pub struct Inventory {
 
 #[derive(Debug)]
 pub struct Surface {
-  index: SurfaceIndex,
-  active_entities_serialisation_helper: u32,
-  chunks: Vec<Chunk>,
-  compiled_map_gen_settings: CompiledMapGenSettings,
-  path_finders: u32,  // Vec<>
-  commanders: Vec<Option<Commander>>,
-  map_generation_manager: MapGenerationManager,
-  active_chunks: Vec<ChunkPosition>,
-  polluted_chunks: [Vec<ChunkPosition>; 0x40],
-  name: String,
-  deletable: bool,
-  show_clouds: bool,
-  clean_surface_parameters: Option<bool>,
-  day_time: DayTime,
-  wind: Wind,
-  chunk_delete_requests: Vec<ChunkPosition>,
-  brightness_visual_weights: Color,
+  pub index: SurfaceIndex,
+  pub active_entities_serialisation_helper: u32,
+  pub chunks: Vec<Chunk>,
+  pub compiled_map_gen_settings: CompiledMapGenSettings,
+  pub path_finders: u32,  // Vec<>
+  pub commanders: Vec<Option<Commander>>,
+  pub map_generation_manager: MapGenerationManager,
+  pub active_chunks: Vec<ChunkPosition>,
+  pub polluted_chunks: [Vec<ChunkPosition>; 0x40],
+  pub name: String,
+  pub deletable: bool,
+  pub show_clouds: bool,
+  pub clean_surface_parameters: Option<bool>,
+  pub day_time: DayTime,
+  pub wind: Wind,
+  pub chunk_delete_requests: Vec<ChunkPosition>,
+  pub brightness_visual_weights: Color,
 }
 impl MapReadWrite for Surface {
   fn map_read<R: BufRead + Seek>(input: &mut MapDeserialiser<R>) -> Result<Self> {
@@ -1620,6 +1620,7 @@ impl MapReadWrite for Surface {
     let active_entities_serialisation_helper = u32::map_read(input)?; assert_eq!(active_entities_serialisation_helper, 0);
     let chunks_len = u32::map_read(input)?;
     let mut chunks: Vec<Chunk> = (0..chunks_len).map(|_| Chunk::initial_read(input)).collect::<Result<_>>()?;
+    let name = String::map_read(input)?;
     let compiled_map_gen_settings = CompiledMapGenSettings::map_read(input)?;
     let path_finders = u32::map_read(input)?; assert_eq!(path_finders, 0);
     let commanders = map_read_vec_u32::<_, Option<Commander>>(input)?;
@@ -1633,7 +1634,6 @@ impl MapReadWrite for Surface {
     let polluted_chunks = (0..0x40).map(|_| map_read_vec_u32(input)).collect::<Result<Vec<Vec<ChunkPosition>>>>()?.try_into().unwrap();
 
     assert_eq!(u32::map_read(input)?, 0); // ParticleSurface
-    let name = String::map_read(input)?;
     assert_eq!(u32::map_read(input)?, 0); // HiddenTiles
     let deletable = bool::map_read(input)?;
     let show_clouds = bool::map_read(input)?;
@@ -1643,7 +1643,13 @@ impl MapReadWrite for Surface {
     let chunk_delete_requests = Vec::map_read(input)?;
     let brightness_visual_weights = Color::map_read(input)?;
 
-    Ok(Surface { index, active_entities_serialisation_helper, chunks, compiled_map_gen_settings, path_finders, commanders, map_generation_manager, active_chunks, polluted_chunks, name, deletable, show_clouds, clean_surface_parameters, day_time, wind, chunk_delete_requests, brightness_visual_weights })
+    Ok(Surface { index, active_entities_serialisation_helper, chunks,
+      compiled_map_gen_settings,
+      path_finders, commanders, map_generation_manager
+      , active_chunks, polluted_chunks,
+      name,
+      deletable, show_clouds, clean_surface_parameters, day_time, wind, chunk_delete_requests, brightness_visual_weights
+    })
   }
   fn map_write(&self, input: &mut MapSerialiser) -> Result<()> {
     self.index.map_write(input)?;
@@ -1651,6 +1657,7 @@ impl MapReadWrite for Surface {
     let chunks_len = self.chunks.len() as u32;
     chunks_len.map_write(input)?;
     self.chunks.iter().map(|c| c.initial_write(input)).collect::<Result<_>>()?;
+    self.name.map_write(input)?;
     self.compiled_map_gen_settings.map_write(input)?;
     self.path_finders.map_write(input)?;
     map_write_vec_u32(&self.commanders, input)?;
@@ -1664,7 +1671,6 @@ impl MapReadWrite for Surface {
     for p in &self.polluted_chunks { map_write_vec_u32(p, input)? }
 
     0_u32.map_write(input)?; // ParticleSurface
-    self.name.map_write(input)?;
     0_u32.map_write(input)?; // HiddenTiles
     self.deletable.map_write(input)?;
     self.show_clouds.map_write(input)?;
@@ -1680,12 +1686,12 @@ impl MapReadWrite for Surface {
 
 #[derive(Debug, MapReadWriteStruct)]
 pub struct Wind {
-  speed: f64,
-  orientation: f32,
-  orientation_change: f64,
-  cumulative_offset: Vector,
-  clouds_offset: Vector,
-  cumulative_offset_history: [Vector; 120],
+  pub speed: f64,
+  pub orientation: f32,
+  pub orientation_change: f64,
+  pub cumulative_offset: Vector,
+  pub clouds_offset: Vector,
+  pub cumulative_offset_history: [Vector; 120],
 }
 
 #[derive(Debug, MapReadWriteStruct)]
@@ -1707,20 +1713,20 @@ pub struct DayTime {
   solar_power_multiplier: f64,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Chunk {
-  position: ChunkPosition,
-  generated_status: u8,  // Enum
-  military_targets_len: u8,
-  active_entities_serialisation_helper: u32,
-  planned_update_counts_to_be_loaded: Vec<u32>,
-  active_when_enemy_is_around: u32,
+  pub position: ChunkPosition,
+  pub generated_status: u8,  // Enum
+  pub military_targets_len: u8,
+  pub active_entities_serialisation_helper: u32,
+  pub planned_update_counts_to_be_loaded: Vec<u32>,
+  pub active_when_enemy_is_around: u32,
 
-  tiles: Vec<Tile>,
-  entities_to_be_inserted_before_setup: Vec<(Entity, EntityData)>,
-  tick_of_optional_activation: u32,
-  tick_of_last_change_that_could_affect_charting: u32,
-  pollution: f64,
+  pub tiles: [[(Tile, u8); 32]; 32],  // [x][y], u8=TileVariation bits: SSSsVVVV V=variation, s=small, S=size
+  pub entities_to_be_inserted_before_setup: Vec<(Entity, EntityData)>,
+  pub tick_of_optional_activation: u32,
+  pub tick_of_last_change_that_could_affect_charting: u32,
+  pub pollution: f64,
 }
 impl Chunk {
   fn initial_read<R: BufRead + Seek>(input: &mut MapDeserialiser<R>) -> Result<Self> {
@@ -1732,7 +1738,7 @@ impl Chunk {
     let active_when_enemy_is_around = u32::map_read(input)?; assert_eq!(active_when_enemy_is_around, 0);
 
     Ok(Chunk { position, generated_status, military_targets_len, active_entities_serialisation_helper, planned_update_counts_to_be_loaded,
-      active_when_enemy_is_around, tiles: vec![], entities_to_be_inserted_before_setup: vec![], tick_of_optional_activation: 0, tick_of_last_change_that_could_affect_charting: 0, pollution: 0.0 })
+      active_when_enemy_is_around, tiles: Default::default(), entities_to_be_inserted_before_setup: vec![], tick_of_optional_activation: 0, tick_of_last_change_that_could_affect_charting: 0, pollution: 0.0 })
   }
   fn initial_write(&self, input: &mut MapSerialiser) -> Result<()> {
     self.position.map_write(input)?;
@@ -1745,9 +1751,11 @@ impl Chunk {
     Ok(())
   }
   fn load<R: BufRead + Seek>(&mut self, input: &mut MapDeserialiser<R>) -> Result<()> {
-    println!("{:?}", self.position);
+    // println!("{:?}", self.position);
     if self.generated_status > 9 {
-      self.tiles = map_read_vec_u16(input)?;
+      let tiles_len = u16::map_read(input)?;
+      assert_eq!(tiles_len, 0x800);
+      self.tiles = MapReadWrite::map_read(input)?;
     }
     loop {
       let action_type_pos = input.stream.position();
@@ -1755,7 +1763,7 @@ impl Chunk {
       if next_entity == 0 { break; }
       let entity = Entity::from_u16(next_entity).unwrap();
       self.entities_to_be_inserted_before_setup.push((entity, EntityData::map_read(entity, action_type_pos, input)?));
-      println!("Read entity {:?}", self.entities_to_be_inserted_before_setup.last());
+      // println!("Read entity {:?}", self.entities_to_be_inserted_before_setup.last());
     }
     self.tick_of_optional_activation = u32::map_read(input)?;
     self.tick_of_last_change_that_could_affect_charting = u32::map_read(input)?;
@@ -1769,7 +1777,8 @@ impl Chunk {
   }
   fn save(&self, input: &mut MapSerialiser) -> Result<()> {
     if self.generated_status > 9 {
-      map_write_vec_u16(&self.tiles, input)?;
+      0x800_u16.map_write(input)?;
+      self.tiles.map_write(input)?;
     }
     for (entity, entity_data) in &self.entities_to_be_inserted_before_setup {
       entity.map_write(input)?;
@@ -1789,7 +1798,7 @@ impl Chunk {
   }
 }
 
-#[derive(Debug, MapReadWriteTaggedUnion)]
+#[derive(Clone, Debug, MapReadWriteTaggedUnion)]
 #[tag_type(Entity)]
 pub enum EntityData {
   Nothing,
@@ -1797,37 +1806,38 @@ pub enum EntityData {
   CopperOre(ResourceEntity),
   IronOre(ResourceEntity),
   Stone(ResourceEntity),
+  CrudeOil(ResourceEntity),
   RockHuge(SimpleEntity),
   DryTree(Tree),
 }
 
-#[derive(Debug, MapReadWriteStruct)]
+#[derive(Clone, Debug, MapReadWriteStruct)]
 pub struct Tree {
-  entity: EntityWithHealth,
-  tree_data: u16,  // graphics variations
-  burn_progress: u8,
+  pub entity: EntityWithHealth,
+  pub tree_data: u16,  // graphics variations
+  pub burn_progress: u8,
 }
 
-#[derive(Debug, MapReadWriteStruct)]
+#[derive(Clone, Debug, MapReadWriteStruct)]
 pub struct ResourceEntity {
-  entity: EntityCommon,
-  resource_amount: u32,
-  initial_amount: Option<u32>,
-  variation: u8,
+  pub entity: EntityCommon,
+  pub resource_amount: u32,
+  pub initial_amount: Option<u32>,
+  pub variation: u8,
 }
 
-#[derive(Debug, MapReadWriteStruct)]
+#[derive(Clone, Debug, MapReadWriteStruct)]
 pub struct SimpleEntity {
-  entity: EntityWithHealth,
-  variation: u8,  // whether this is present depends on the number of graphics variantions, not sure how to predict that
+  pub entity: EntityWithHealth,
+  pub variation: u8,  // whether this is present depends on the number of graphics variantions, not sure how to predict that
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct EntityWithHealth {
-  entity: EntityCommon,
-  health: f32,
-  damage_to_be_taken: f32,
-  upgrade_target: Entity,
+  pub entity: EntityCommon,
+  pub health: f32,
+  pub damage_to_be_taken: f32,
+  pub upgrade_target: Entity,
 }
 impl MapReadWrite for EntityWithHealth {
   fn map_read<R: BufRead + Seek>(input: &mut MapDeserialiser<R>) -> Result<Self> {
@@ -1848,18 +1858,18 @@ impl MapReadWrite for EntityWithHealth {
   }
 }
 
-#[derive(Debug, MapReadWriteStruct)]
+#[derive(Clone, Debug, MapReadWriteStruct)]
 pub struct EntityCommon {
-  position: MapPosition,
-  usage_bit_mask: u16,
-  #[conditional_or_default(usage_bit_mask & 0x1000 != 0)] targeter: Option<u32>,
+  pub position: MapPosition,
+  pub usage_bit_mask: u16,
+  #[conditional_or_default(usage_bit_mask & 0x1000 != 0)] pub targeter: Option<u32>,
 }
 
 
 #[derive(Debug, MapReadWriteStruct)]
 pub struct CompiledMapGenSettings {
-  settings: MapGenSettings,
-  serialized_data: Vec<u8>,
+  pub settings: MapGenSettings,
+  pub serialized_data: Vec<u8>,
 }
 
 #[derive(Debug, MapReadWriteStruct)]
@@ -1886,7 +1896,7 @@ pub struct MapGenerationManager {
   #[assert_eq(0)] requests_by_status_2: u8,  // Deque<>
   #[assert_eq(0)] requests_by_status_3: u8,  // Deque<>
   #[assert_eq(0)] requests_being_processed: u8,  // Deque<>
-  orders_up_to_tick: f64,
+  pub orders_up_to_tick: f64,
   active: bool,
   force_all_to_lab_grid: bool,
 }

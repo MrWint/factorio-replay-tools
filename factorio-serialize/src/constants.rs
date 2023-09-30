@@ -1348,9 +1348,9 @@ pub enum Technology {
 
 // Version: 1.1.87
 // Extraction method: main::export_prototypes
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReplayReadWriteEnumU8, MapReadWriteEnumU8)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, Primitive, ReplayReadWriteEnumU8, MapReadWriteEnumU8)]
 pub enum Tile {
-  Nothing = 0,
+  #[default] Nothing = 0,
   StonePath = 1,
   Concrete = 2,
   HazardConcreteLeft = 3,

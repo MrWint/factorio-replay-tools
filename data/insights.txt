@@ -1,0 +1,9 @@
+
+
+reach distance
+  - distance between player position and entity collision box
+  - also true for resource nodes (collision box only -0.1 - 0.1 -> shorter apparent reach)
+  - default distances
+    - resource reach: 2.7
+
+player speed: 0.15 tiles/tick -> 38/256 ortho, 27/256 diagonal

@@ -1484,8 +1484,8 @@ pub struct CustomInputData {
 type FixedPoint32 = i32;
 #[derive(Clone, Copy, Debug, Default, ReplayReadWriteStruct)]
 pub struct MapPosition { // in 1/256th tiles
-  x: FixedPoint32,
-  y: FixedPoint32,
+  pub x: FixedPoint32,
+  pub y: FixedPoint32,
 }
 impl MapPosition {
   pub fn new(x: FixedPoint32, y: FixedPoint32) -> Self {

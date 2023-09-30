@@ -5,7 +5,11 @@ use zip::write::FileOptions;
 
 const FREEPLAY_LUA: &[u8] = include_bytes!("../../data/freeplay.lua");
 const CONTROL_LUA: &[u8] = include_bytes!("../../data/control.lua");
+const CONTROL_INSTRUMENTED_LUA: &[u8] = include_bytes!("../../data/control_instrumented.lua");
+const DESCRIPTION_JSON: &[u8] = include_bytes!("../../data/description.json");
+const INFO_JSON: &[u8] = include_bytes!("../../data/info.json");
 const SAVES_DIR: &str = "/mnt/c/Users/chris/AppData/Roaming/Factorio/saves";
+const SCENARIOS_DIR: &str = "/mnt/c/Users/chris/AppData/Roaming/Factorio/scenarios";
 
 #[derive(Debug)]
 pub enum SaveFileError {
@@ -35,10 +39,11 @@ impl Display for SaveFileError {
 pub struct SaveFile {
   pub level_init_dat: Vec<u8>,
   pub replay_dat: Vec<u8>,
+  pub script_init_dat: Vec<u8>,
 }
 impl SaveFile {
-  fn from_raw_dat(level_init_dat: Vec<u8>, replay_dat: Vec<u8>) -> SaveFile {
-    SaveFile { level_init_dat, replay_dat }
+  fn from_raw_dat(level_init_dat: Vec<u8>, replay_dat: Vec<u8>, script_init_dat: Vec<u8>) -> SaveFile {
+    SaveFile { level_init_dat, replay_dat, script_init_dat }
   }
 
   pub fn load_save_file(name: &str) -> std::result::Result<SaveFile, SaveFileError> {
@@ -59,8 +64,15 @@ impl SaveFile {
       zip_file.read_to_end(&mut buf)?;
       buf
     };
-  
-    Ok(SaveFile::from_raw_dat(level_init_dat, replay_dat))
+    let script_init_dat = {
+      let file_name = archive.file_names().find(|s| s.ends_with("/script-init.dat")).unwrap().to_owned();
+      let mut zip_file = archive.by_name(&file_name)?;
+      let mut buf = Vec::with_capacity(zip_file.size() as usize);
+      zip_file.read_to_end(&mut buf)?;
+      buf
+    };
+
+    Ok(SaveFile::from_raw_dat(level_init_dat, replay_dat, script_init_dat))
   }
 
   pub fn write_save_file(&self, name: &str) -> std::result::Result<(), SaveFileError> {
@@ -78,6 +90,56 @@ impl SaveFile {
     save_file_zip.write_all(&self.level_init_dat)?;
     save_file_zip.start_file(&format!("{}/replay.dat", name), FileOptions::default())?;
     save_file_zip.write_all(&self.replay_dat)?;
+    save_file_zip.start_file(&format!("{}/script-init.dat", name), FileOptions::default())?;
+    save_file_zip.write_all(&self.script_init_dat)?;
+    save_file_zip.start_file(&format!("{}/script.dat", name), FileOptions::default())?;
+    save_file_zip.write_all(&self.script_init_dat)?;
+
+    Ok(())
+  }
+
+  pub fn write_save_file_instrumented(&self, name: &str) -> std::result::Result<(), SaveFileError> {
+    let save_file_path = Path::new(SAVES_DIR).join(format!("{}.zip", name));
+    let new_save_file = std::fs::File::create(&save_file_path)?;
+    let mut save_file_zip = zip::ZipWriter::new(new_save_file);
+
+    save_file_zip.start_file(&format!("{}/control.lua", name), FileOptions::default())?;
+    save_file_zip.write_all(CONTROL_INSTRUMENTED_LUA)?;
+    save_file_zip.start_file(&format!("{}/freeplay.lua", name), FileOptions::default())?;
+    save_file_zip.write_all(FREEPLAY_LUA)?;
+    save_file_zip.start_file(&format!("{}/level-init.dat", name), FileOptions::default())?;
+    save_file_zip.write_all(&self.level_init_dat)?;
+    save_file_zip.start_file(&format!("{}/level.dat", name), FileOptions::default())?;
+    save_file_zip.write_all(&self.level_init_dat)?;
+    save_file_zip.start_file(&format!("{}/replay.dat", name), FileOptions::default())?;
+    save_file_zip.write_all(&self.replay_dat)?;
+    save_file_zip.start_file(&format!("{}/script-init.dat", name), FileOptions::default())?;
+    save_file_zip.write_all(&self.script_init_dat)?;
+    save_file_zip.start_file(&format!("{}/script.dat", name), FileOptions::default())?;
+    save_file_zip.write_all(&self.script_init_dat)?;
+
+    Ok(())
+  }
+
+
+
+  pub fn write_scenario_folder(&self, name: &str) -> std::result::Result<(), SaveFileError> {
+    let scenario_folder_path = Path::new(SCENARIOS_DIR).join(name);
+    if scenario_folder_path.exists() {
+      std::fs::remove_dir_all(&scenario_folder_path)?;
+    }
+    std::fs::create_dir(&scenario_folder_path)?;
+
+    std::fs::File::create(scenario_folder_path.join("control.lua"))?.write_all(CONTROL_LUA)?;
+    std::fs::File::create(scenario_folder_path.join("freeplay.lua"))?.write_all(FREEPLAY_LUA)?;
+    std::fs::File::create(scenario_folder_path.join("description.json"))?.write_all(DESCRIPTION_JSON)?;
+    std::fs::File::create(scenario_folder_path.join("script.dat"))?.write_all(&self.script_init_dat)?;
+
+    let mut blueprint_file_zip = zip::ZipWriter::new(std::fs::File::create(scenario_folder_path.join("blueprint.zip"))?);
+    blueprint_file_zip.start_file("blueprint/info.json", FileOptions::default())?;
+    blueprint_file_zip.write_all(INFO_JSON)?;
+    blueprint_file_zip.start_file("blueprint/blueprint.dat", FileOptions::default())?;
+    blueprint_file_zip.write_all(&self.level_init_dat)?;
 
     Ok(())
   }
