@@ -13,6 +13,8 @@ use factorio_serialize_derive::MapReadWriteTaggedUnion;
 use num_traits::FromPrimitive;
 use num_traits::ToPrimitive;
 
+use crate::ChunkPosition;
+use crate::MapPosition;
 use crate::Reader;
 use crate::Result;
 use crate::Writer;
@@ -679,46 +681,6 @@ pub struct BoundingBox {
 pub struct VectorOrientation {
   pub x: i16,
   pub y: i16,
-}
-
-type FixedPoint32_8 = i32;  // *1/256, .5 rounded away from 0
-
-#[derive(Clone, Debug, Default)]
-pub struct MapPosition {
-  pub x: FixedPoint32_8,
-  pub y: FixedPoint32_8,
-  pub deserialized_relative: bool,
-}
-impl MapReadWrite for MapPosition {
-  fn map_read<R: BufRead + Seek>(input: &mut MapDeserialiser<R>) -> Result<Self> {
-    let dx = input.stream.read_i16()?;
-
-    let map_position = if dx == 0x7fff {
-      let x = input.stream.read_i32()?;
-      let y = input.stream.read_i32()?;
-      MapPosition { x, y, deserialized_relative: false }
-    } else {
-      let dy = input.stream.read_i16()?;
-      MapPosition { x: input.last_loaded_position.x + dx as i32, y: input.last_loaded_position.y + dy as i32, deserialized_relative: true }
-    };
-    input.last_loaded_position = map_position.clone();
-    Ok(map_position)
-  }
-  fn map_write(&self, input: &mut MapSerialiser) -> Result<()> {
-    if self.deserialized_relative {
-      let dx = self.x - input.last_saved_position.x;
-      let dy = self.y - input.last_saved_position.y;
-      assert!(dx.abs() < 0x7ffe && dy.abs() < 0x7ffe);  // based on MapPosition::saveInternal
-      input.stream.write_i16(dx as i16)?;
-      input.stream.write_i16(dy as i16)?;
-    } else {
-      input.stream.write_i16(0x7fff)?;
-      input.stream.write_i32(self.x)?;
-      input.stream.write_i32(self.y)?;
-    }
-    input.last_saved_position = self.clone();
-    Ok(())
-  }
 }
 
 #[derive(Debug, MapReadWriteStruct)]
@@ -1483,12 +1445,6 @@ pub struct SubChart {
 pub enum SubChartPixelCommand {
   NewPaletteColor { index: u8, r: u8, g: u8, b: u8, len: u8 },
   ExistingPaletteColor { index: u8, len: u8 },
-}
-
-#[derive(Clone, Debug, MapReadWriteStruct)]
-pub struct ChunkPosition {
-  pub x: i32,
-  pub y: i32,
 }
 
 #[derive(Debug, MapReadWriteStruct)]

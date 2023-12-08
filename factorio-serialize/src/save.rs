@@ -42,7 +42,7 @@ pub struct SaveFile {
   pub script_init_dat: Vec<u8>,
 }
 impl SaveFile {
-  fn from_raw_dat(level_init_dat: Vec<u8>, replay_dat: Vec<u8>, script_init_dat: Vec<u8>) -> SaveFile {
+  pub fn from_raw_dat(level_init_dat: Vec<u8>, replay_dat: Vec<u8>, script_init_dat: Vec<u8>) -> SaveFile {
     SaveFile { level_init_dat, replay_dat, script_init_dat }
   }
 

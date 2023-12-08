@@ -1,5 +1,8 @@
+mod hexfloat;
+mod runner;
 mod singleplayerrunner;
 
+use factorio_serialize::TilePosition;
 use factorio_serialize::constants::*;
 use factorio_serialize::map::ActiveMigrations;
 use factorio_serialize::map::EntityCommon;
@@ -13,7 +16,7 @@ use factorio_serialize::replay::Direction;
 use factorio_serialize::replay::ForceId;
 use factorio_serialize::replay::InputAction;
 use factorio_serialize::replay::InputActionData;
-use factorio_serialize::replay::MapPosition;
+use factorio_serialize::MapPosition;
 use factorio_serialize::replay::PlayerJoinGameData;
 use factorio_serialize::replay::ReplayData;
 use factorio_serialize::save::SaveFile;
@@ -21,7 +24,9 @@ use factorio_serialize::script::LuaGameScript;
 use factorio_serialize::script::LuaGameScriptState;
 use factorio_serialize::script::LuaValue;
 use factorio_serialize::script::ScriptData;
+use runner::Runner;
 use crate::singleplayerrunner::*;
+use crate::hexfloat::HexFloat;
 use std::fmt::Display;
 
 fn main() {
@@ -35,16 +40,43 @@ fn main() {
   // load_and_save_replay_test("scenario_save_replay_2");
   // load_and_save_replay_test("1187-20230720-1-35-08");
   // load_and_save_replay_test("1187-4h46m32s");
-  // load_and_save_replay_test("1191scenarioreplay");
-  // load_and_save_script_test("1191scenarioreplay3");
+  // load_and_save_replay_test("test2");
+  // load_and_save_script_test("test");
   // map_to_scenario_test("1191scenarioreplay");
   // assemble_test_tas();
   // assemble_automation_tas();
   // modify_map_test("1191scenarioreplay3");
   // clean_up_save_file("1191scenarioreplay3");
   create_test_replay();
+  // test_float();
 
   // export_prototypes("1191scenarioreplay");
+}
+
+// Double a: 0.00416666666666666574148081281236954964697360992431640625   // 4803839602528528 / 2^60
+//           0.0041666666666666660745477201999165117740631103515625   //  2345624805922133 / 1000 * 2^49
+// Double b: 0.004166666666666666608842550800773096852935850620269775390625  //  4803839602528529 / 2^60
+// From Lua: 0.00416666666666666607454772019992
+// Division: 0.004166666666666666608842550801
+// Lua rndt: 0.004166666666666665741480812812
+
+#[allow(dead_code)]
+fn test_float() {
+  // println!("{:.30}", (1.0_f64 / 4.0) / 60.0);
+  // println!("{:.30}", (1.0_f64 / 60.0) / 4.0);
+  // println!("{:.30}", 0.00416666666666666607454772019992_f64);
+  // let mut a = 0_f64;
+  // for _ in 0..240 {
+  //   a += 0.00416666666666666661;
+  //   // a += 0.0041666666666666661;
+  //   println!("{:.20}", HexFloat(a));
+  // }
+  println!("{}", HexFloat((2500.0 * 16.0) / 15.0));
+  println!("{}", HexFloat((2500.0 / 15.0) * 16.0));
+  println!("{}", HexFloat(2500.0 * (16.0 / 15.0)));
+  let f = 16.0 / 15.0;
+  println!("{}", HexFloat(f));
+  println!("{}", HexFloat(1500.0 * f));
 }
 
 #[allow(dead_code)]
@@ -76,9 +108,9 @@ fn modify_map_test(name: &str) {
     map_data.map.surfaces[0].chunks[210].tiles[x][y] = (Tile::RefinedConcrete, 16);
   }}
 
-  map_data.map.surfaces[0].chunks[210].entities_to_be_inserted_before_setup.push((Entity::DryTree, EntityData::DryTree(Tree { entity: EntityWithHealth { entity: EntityCommon { position: factorio_serialize::map::MapPosition { x: 768+25, y: 200, deserialized_relative: false } , usage_bit_mask: 0, targeter: None }, damage_to_be_taken: 0.0, health: 0.0, upgrade_target: Entity::Nothing }, burn_progress: 0, tree_data: 0 })));
-  map_data.map.surfaces[0].chunks[210].entities_to_be_inserted_before_setup.push((Entity::RockHuge, EntityData::RockHuge(SimpleEntity { entity: EntityWithHealth { entity: EntityCommon { position: factorio_serialize::map::MapPosition { x: 768, y: 768, deserialized_relative: false } , usage_bit_mask: 0, targeter: None }, damage_to_be_taken: 0.0, health: 0.0, upgrade_target: Entity::Nothing }, variation: 0 })));
-  map_data.map.surfaces[0].chunks[210].entities_to_be_inserted_before_setup.push((Entity::IronOre, EntityData::IronOre(ResourceEntity { entity: EntityCommon { position: factorio_serialize::map::MapPosition { x: 768-128, y: 128, deserialized_relative: false } , usage_bit_mask: 0, targeter: None }, resource_amount: 1234, initial_amount: None, variation: 0 })));
+  map_data.map.surfaces[0].chunks[210].entities_to_be_inserted_before_setup.push((Entity::DryTree, EntityData::DryTree(Tree { entity: EntityWithHealth { entity: EntityCommon { position: MapPosition::new(768+25, 200) , usage_bit_mask: 0, targeter: None }, damage_to_be_taken: 0.0, health: 0.0, upgrade_target: Entity::Nothing }, burn_progress: 0, tree_data: 0 })));
+  map_data.map.surfaces[0].chunks[210].entities_to_be_inserted_before_setup.push((Entity::RockHuge, EntityData::RockHuge(SimpleEntity { entity: EntityWithHealth { entity: EntityCommon { position: MapPosition::new(768, 768) , usage_bit_mask: 0, targeter: None }, damage_to_be_taken: 0.0, health: 0.0, upgrade_target: Entity::Nothing }, variation: 0 })));
+  map_data.map.surfaces[0].chunks[210].entities_to_be_inserted_before_setup.push((Entity::IronOre, EntityData::IronOre(ResourceEntity { entity: EntityCommon { position: MapPosition::new(768-128, 128) , usage_bit_mask: 0, targeter: None }, resource_amount: 1234, initial_amount: None, variation: 0 })));
 
   println!("Map data: {:?}", map_data);
 
@@ -164,9 +196,11 @@ fn clean_up_save_file(name: &str) {
   // Set up script data to skip crash site
   let mut script_data = ScriptData::parse_script_data(&save_file.script_init_dat).unwrap();
   script_data.lua_context.scripts = vec![(String::from("level"), LuaGameScript {
-    had_control_lua: true,
-    script_state: LuaGameScriptState { state_value: LuaValue::Table(vec![(LuaValue::String(String::from("skip_intro")), LuaValue::BoolTrue), (LuaValue::String(String::from("disable_crashsite")), LuaValue::BoolTrue)]) }
-  })];
+    had_control_lua: false,  // force initialization of control.lua scripts, including globals for items on player creation and silo script
+    script_state: LuaGameScriptState { state_value: LuaValue::Table(vec![
+      (LuaValue::String(String::from("skip_intro")), LuaValue::BoolTrue),  // disable freeplay intro message
+      (LuaValue::String(String::from("disable_crashsite")), LuaValue::BoolTrue),  // disable crash site and cutscene, keep all starting items in player inventory
+    ]) } })];
 
   // println!("Map data: {:?}", map_data);
 
@@ -191,7 +225,7 @@ fn load_and_save_script_test(name: &str) {
   let serialized_script_data = script_data.write_script_data().unwrap();
   assert_eq!(serialized_script_data, save_file.script_init_dat);
 
-  save_file.write_save_file("test").unwrap()
+  // save_file.write_save_file("test").unwrap()
 }
 
 #[allow(dead_code)]
@@ -236,28 +270,27 @@ fn load_and_save_replay_test(name: &str) {
   let serialized_replay_data = replay_data.write_replay_data().unwrap();
   assert_eq!(serialized_replay_data, save_file.replay_dat);
 
-  save_file.write_save_file("test").unwrap()
+  // save_file.write_save_file("test").unwrap()
 }
 
 #[allow(dead_code)]
 fn create_test_replay() {
-  let mut save_file = SaveFile::load_save_file("1191template").unwrap();
+  let mut runner = Runner::from_template_map("1191template").unwrap();
 
-  let mut replay_data = ReplayData::parse_replay_data(&save_file.replay_dat).unwrap();
+  runner.input_actions.push(InputAction::new(0, 0, InputActionData::WriteToConsole(r#"/c game.write_file("test.dump", "command tick " .. game.tick .. " entity (" .. serpent.line(game.surfaces[1].find_entity("burner-mining-drill", {2, 0}) == nil) .. ")\n", true)"#.to_owned())));
+  runner.build_miner_for(Item::IronOre, TilePosition::new(2, 0), Direction::South);
+  runner.add_item(Item::Wood, 1, TilePosition::new(2, 0).top_left_map_position());
+  // runner.build(Item::StoneFurnace, MapPosition::new(0x200, 0x200), Direction::South);
+  runner.input_actions.push(InputAction::new(0, 0, InputActionData::WriteToConsole(r#"/c game.write_file("test.dump", "command tick " .. game.tick .. " entity (" .. serpent.line(game.surfaces[1].find_entity("burner-mining-drill", {2, 0}) == nil) .. ")\n", true)"#.to_owned())));
 
-  replay_data.actions.push(InputAction::new(0, 255, InputActionData::SingleplayerInit));
-  replay_data.actions.push(InputAction::new(0, 255, InputActionData::GameCreatedFromScenario));
-  replay_data.actions.push(InputAction::new(0, 255, InputActionData::DisconnectAllPlayers));
-  replay_data.actions.push(InputAction::new(0, 255, InputActionData::PlayerJoinGame(PlayerJoinGameData { peer_id: 0, player_index: 0, force_id: ForceId::Player, username: "MrWint".to_owned(), as_editor: false, admin: true })));
-  replay_data.actions.push(InputAction::new(0, 0, InputActionData::StartWalking(Direction::East)));
-  for tick in 0..11 {
-    replay_data.actions.push(InputAction::new(tick, 0, InputActionData::WriteToConsole(r#"/c game.write_file("test.dump", "command tick " .. game.tick .. " walking_state (" .. serpent.line(game.player.walking_state) .. ", " .. game.player.walking_state.direction .. ")\n", true)"#.to_owned())));
-  }
-  replay_data.actions.push(InputAction::new(30, 0, InputActionData::StopWalking));
-  replay_data.actions.push(InputAction::new(3000, 0, InputActionData::StopWalking));
+  // replay_data.actions.push(InputAction::new(0, 0, InputActionData::StartWalking(Direction::East)));
+  // for tick in 0..11 {
+  //   replay_data.actions.push(InputAction::new(tick, 0, InputActionData::WriteToConsole(r#"/c game.write_file("test.dump", "command tick " .. game.tick .. " walking_state (" .. serpent.line(game.player.walking_state) .. ", " .. game.player.walking_state.direction .. ")\n", true)"#.to_owned())));
+  // }
+  // replay_data.actions.push(InputAction::new(30, 0, InputActionData::StopWalking));
+  // replay_data.actions.push(InputAction::new(3000, 0, InputActionData::StopWalking));
 
-  save_file.replay_dat = replay_data.write_replay_data().unwrap();
-  save_file.write_save_file_instrumented("test").unwrap()
+  runner.write_save_file("test").unwrap();
 }
 
 #[allow(dead_code)]

@@ -11,8 +11,10 @@ use factorio_serialize_derive::ReplayReadWriteTaggedUnion;
 use num_traits::FromPrimitive;
 use num_traits::ToPrimitive;
 
+use crate::MapPosition;
 use crate::Reader;
 use crate::Result;
+use crate::TilePosition;
 use crate::Writer;
 use crate::constants::Achievement;
 use crate::constants::Decorative;
@@ -1481,18 +1483,6 @@ pub struct CustomInputData {
   selected_prototype_data: Option<SelectedPrototypeData>,
 }
 
-type FixedPoint32 = i32;
-#[derive(Clone, Copy, Debug, Default, ReplayReadWriteStruct)]
-pub struct MapPosition { // in 1/256th tiles
-  pub x: FixedPoint32,
-  pub y: FixedPoint32,
-}
-impl MapPosition {
-  pub fn new(x: FixedPoint32, y: FixedPoint32) -> Self {
-    Self { x, y }
-  }
-}
-
 #[derive(Debug, ReplayReadWriteStruct)]
 pub struct PixelPosition {
   x: i32,
@@ -1597,12 +1587,6 @@ impl ReplayReadWrite for SignalId {
       SignalId::VirtualSignal { virtual_signal, } => { 2_u8.replay_write(w)?; virtual_signal.replay_write(w) },
     }
   }
-}
-
-#[derive(Debug, ReplayReadWriteStruct)]
-pub struct TilePosition {
-  x: i32,
-  y: i32,
 }
 
 #[derive(Debug, ReplayReadWriteStruct)]

@@ -1,3 +1,4 @@
+use factorio_serialize::MapPosition;
 use factorio_serialize::constants::*;
 use factorio_serialize::replay::*;
 
