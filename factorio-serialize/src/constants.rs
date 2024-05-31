@@ -7,8 +7,8 @@ use num_traits::{FromPrimitive, ToPrimitive};
 // IDs //
 /////////
 
-// Version: 1.1.87
-// Extraction method: main::export_prototypes
+// Version: 1.1.107
+// Extraction method: util::export_prototypes
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReplayReadWriteEnumU16, MapReadWriteEnumU16)]
 pub enum Achievement {
   GettingOnTrack = 1,
@@ -51,8 +51,8 @@ pub enum Achievement {
   SoLongAndThanksForAllTheFish = 38,
 }
 
-// Version: 1.1.87
-// Extraction method: main::export_prototypes
+// Version: 1.1.107
+// Extraction method: util::export_prototypes
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReplayReadWriteEnumU8)]
 pub enum Decorative {
   BrownHairyGrass = 1,
@@ -100,8 +100,8 @@ pub enum Decorative {
   SmallShipWreckGrass = 43,
 }
 
-// Version: 1.1.87
-// Extraction method: main::export_prototypes
+// Version: 1.1.107
+// Extraction method: util::export_prototypes
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReplayReadWriteEnumU16, MapReadWriteEnumU16)]
 
 pub enum Entity {
@@ -636,8 +636,8 @@ pub enum Entity {
   Compilatron = 528,
 }
 
-// Version: 0.17.69
-// method: main::export_prototypes
+// Version: 1.1.107
+// Extraction method: util::export_prototypes
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReplayReadWriteEnumU16)]
 pub enum Equipment {
   Nothing = 0,
@@ -656,8 +656,8 @@ pub enum Equipment {
   BeltImmunityEquipment = 13,
 }
 
-// Version: 1.1.87
-// Extraction method: main::export_prototypes
+// Version: 1.1.107
+// Extraction method: util::export_prototypes
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReplayReadWriteEnumU16)]
 pub enum Fluid {
   FluidUnknown = 1,
@@ -671,8 +671,8 @@ pub enum Fluid {
   Lubricant = 9,
 }
 
-// Version: 1.1.87
-// Extraction method: main::export_prototypes
+// Version: 1.1.107
+// Extraction method: util::export_prototypes
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReplayReadWriteEnumU16)]
 pub enum Item {
   Nothing = 0,
@@ -913,8 +913,8 @@ pub enum Item {
   BurnerGenerator = 235,
 }
 
-// Version: 1.1.87
-// Extraction method: main::export_prototypes
+// Version: 1.1.107
+// Extraction method: util::export_prototypes
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReplayReadWriteEnumU8)]
 pub enum ItemGroup {
   Logistics = 1,
@@ -929,8 +929,8 @@ pub enum ItemGroup {
   Other = 10,
 }
 
-// Version: 1.1.87
-// Extraction method: main::export_prototypes
+// Version: 1.1.107
+// Extraction method: util::export_prototypes
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReplayReadWriteEnumU16)]
 pub enum Recipe {
   Accumulator = 1,
@@ -1147,8 +1147,8 @@ pub enum Recipe {
   KovarexEnrichmentProcess = 212,
 }
 
-// Version: 1.1.87
-// Extraction method: main::export_prototypes
+// Version: 1.1.107
+// Extraction method: util::export_prototypes
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReplayReadWriteEnumU16)]
 pub enum Technology {
   Automation = 1,
@@ -1346,8 +1346,8 @@ pub enum Technology {
 }
 
 
-// Version: 1.1.87
-// Extraction method: main::export_prototypes
+// Version: 1.1.107
+// Extraction method: util::export_prototypes
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, Primitive, ReplayReadWriteEnumU8, MapReadWriteEnumU8)]
 pub enum Tile {
   #[default] Nothing = 0,
@@ -1405,8 +1405,8 @@ pub enum Tile {
   TutorialGrid = 52,
 }
 
-// Version: 1.1.87
-// Extraction method: main::export_prototypes
+// Version: 1.1.107
+// Extraction method: util::export_prototypes
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Primitive, ReplayReadWriteEnumU16)]
 pub enum VirtualSignal {
   SignalEverything = 1,

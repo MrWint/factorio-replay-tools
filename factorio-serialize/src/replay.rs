@@ -11,6 +11,8 @@ use factorio_serialize_derive::ReplayReadWriteTaggedUnion;
 use num_traits::FromPrimitive;
 use num_traits::ToPrimitive;
 
+use crate::structs::BoundingBox;
+use crate::structs::Vector;
 use crate::MapPosition;
 use crate::Reader;
 use crate::Result;
@@ -936,12 +938,6 @@ pub struct UpgradeOpenedBlueprintByItemParameters {
 }
 
 #[derive(Debug, ReplayReadWriteStruct)]
-pub struct Vector {
-  x: f64,
-  y: f64,
-}
-
-#[derive(Debug, ReplayReadWriteStruct)]
 pub struct SendSpidertronParameters {
   position: MapPosition,
   flags: u8,  // append, follow_command
@@ -1268,19 +1264,6 @@ pub enum SplitterPriority {
 pub struct SelectAreaData {
   pub bounding_box: BoundingBox,
   pub skip_fog_of_war: bool,
-}
-
-#[derive(Debug, ReplayReadWriteStruct)]
-pub struct BoundingBox {
-  pub left_top: MapPosition,
-  pub right_bottom: MapPosition,
-  pub orientation: VectorOrientation,
-}
-
-#[derive(Debug, ReplayReadWriteStruct)]
-pub struct VectorOrientation {
-  pub x: i16,
-  pub y: i16,
 }
 
 #[derive(Debug, ReplayReadWriteStruct)]

@@ -1,9 +1,5 @@
 use std::fmt::Display;
 
-use num_traits::Zero;
-
-
-
 pub struct HexFloat(pub f64);
 
 impl Display for HexFloat {

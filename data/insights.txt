@@ -7,3 +7,14 @@ reach distance
     - resource reach: 2.7
 
 player speed: 0.15 tiles/tick -> 38/256 ortho, 27/256 diagonal
+
+player movement:
+- Character::calculateNewPositionInternal
+  - calc new position
+  - If no collisions, full movement
+  - If ortho, try slide over corner and move if successful
+  - else (diagonal): check horizontal, then vertical component separately and move if no collision
+  - If not moved yet, check if length of movement vector is > 0.1 (x^2+y^2 > 0.01), then repeat with half movement, else return No Movement (moves on to short movement)
+- Character::calculateShortMovement
+  - if diagonal movement, No Movement
+  - start with 8 units, move and return if no collision, decrement otherwise, No Movement if reaches 0

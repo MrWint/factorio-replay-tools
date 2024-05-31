@@ -13,6 +13,8 @@ use factorio_serialize_derive::MapReadWriteTaggedUnion;
 use num_traits::FromPrimitive;
 use num_traits::ToPrimitive;
 
+use crate::structs::BoundingBox;
+use crate::structs::Vector;
 use crate::ChunkPosition;
 use crate::MapPosition;
 use crate::Reader;
@@ -56,9 +58,9 @@ impl MapData {
 }
 impl std::fmt::Debug for MapData {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    writeln!(f, "map_version: ")?; self.map_version.fmt(f)?;
-    writeln!(f, "scenario_execution_context: ")?; self.scenario_execution_context.fmt(f)?;
-    writeln!(f, "map: ")?; self.map.fmt(f)?;
+    write!(f, "map_version: ")?; self.map_version.fmt(f)?; writeln!(f)?;
+    write!(f, "scenario_execution_context: ")?; self.scenario_execution_context.fmt(f)?; writeln!(f)?;
+    write!(f, "map: ")?; self.map.fmt(f)?; writeln!(f)?;
     Ok(())
   }
 }
@@ -668,19 +670,6 @@ pub struct FrequencySizeRichness {
 pub struct AutoplaceSettings {
   treat_missing_as_default: bool,
   settings: Vec<(String, FrequencySizeRichness)>,
-}
-
-#[derive(Debug, MapReadWriteStruct)]
-pub struct BoundingBox {
-  pub left_top: MapPosition,
-  pub right_bottom: MapPosition,
-  pub orientation: VectorOrientation,
-}
-
-#[derive(Debug, MapReadWriteStruct)]
-pub struct VectorOrientation {
-  pub x: i16,
-  pub y: i16,
 }
 
 #[derive(Debug, MapReadWriteStruct)]
@@ -1651,12 +1640,6 @@ pub struct Wind {
 }
 
 #[derive(Debug, MapReadWriteStruct)]
-pub struct Vector {
-  x: f64,
-  y: f64,
-}
-
-#[derive(Debug, MapReadWriteStruct)]
 pub struct DayTime {
   dusk: f64,
   dawn: f64,
@@ -1727,7 +1710,7 @@ impl Chunk {
     assert_eq!(u8::map_read(input)?, 0); // trivial_smokes
     assert_eq!(u8::map_read(input)?, 0); // decoratives
     assert_eq!(u32::map_read(input)?, 0); // perimeter_components
-    assert_eq!(u32::map_read(input)?, 0); // meighbor_components
+    assert_eq!(u32::map_read(input)?, 0); // neighbor_components
 
     Ok(())
   }

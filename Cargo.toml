@@ -11,3 +11,7 @@ num-traits = "*"
 zip = "*"
 heck = "*"
 factorio-serialize = { path = "factorio-serialize" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_with = "3.8.1"
+lazy_static = "1.4.0"
