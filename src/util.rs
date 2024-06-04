@@ -5,7 +5,7 @@ use factorio_serialize::{constants::Tile, map::{ActiveMigrations, MapData}, repl
 
 
 #[allow(dead_code)]
-pub fn load_and_save_map_test(name: &str, outname: &str) {
+pub fn load_and_verify_map_test(name: &str) {
   let save_file = SaveFile::load_save_file(name).unwrap();
 
   let map_data = MapData::parse_map_data(&save_file.level_init_dat).unwrap();
@@ -18,11 +18,9 @@ pub fn load_and_save_map_test(name: &str, outname: &str) {
 
   let serialized_map_data = map_data.write_map_data().unwrap();
   assert_eq!(serialized_map_data, save_file.level_init_dat);
-
-  save_file.write_save_file(outname).unwrap()
 }
 #[allow(dead_code)]
-pub fn load_and_save_replay_test(name: &str) {
+pub fn load_and_verify_replay_test(name: &str) {
   let save_file = SaveFile::load_save_file(name).unwrap();
 
   let replay_data = ReplayData::parse_replay_data(&save_file.replay_dat).unwrap();
@@ -33,7 +31,7 @@ pub fn load_and_save_replay_test(name: &str) {
 }
 
 #[allow(dead_code)]
-pub fn load_and_save_script_test(name: &str) {
+pub fn load_and_verify_script_test(name: &str) {
   let save_file = SaveFile::load_save_file(name).unwrap();
 
   let script_data = ScriptData::parse_script_data(&save_file.script_init_dat).unwrap();
@@ -54,31 +52,48 @@ pub fn export_prototypes(name: &str) {
   let save_file = SaveFile::load_save_file(name).unwrap();
   let map_data = MapData::parse_map_data(&save_file.level_init_dat).unwrap();
 
-  print_prototype_ids(&map_data.map.prototype_migrations.achievement_id_migrations, "Achievements");
-  print_prototype_ids(&map_data.map.prototype_migrations.decorative_id_migrations, "Decoratives");
-  print_prototype_ids(&map_data.map.prototype_migrations.entity_id_migrations, "Enitites");
-  print_prototype_ids(&map_data.map.prototype_migrations.equipment_id_migrations, "Equipment");
-  print_prototype_ids(&map_data.map.prototype_migrations.fluid_id_migrations, "Fluids");
-  print_prototype_ids(&map_data.map.prototype_migrations.item_id_migrations, "Items");
-  print_prototype_ids(&map_data.map.prototype_migrations.item_group_id_migrations, "ItemGroups");
-  print_prototype_ids(&map_data.map.prototype_migrations.recipe_id_migrations, "Recipes");
-  print_prototype_ids(&map_data.map.prototype_migrations.tile_id_migrations, "Tiles");
-  print_prototype_ids(&map_data.map.prototype_migrations.technology_id_migrations, "Technologies");
-  print_prototype_ids(&map_data.map.prototype_migrations.virtual_signal_id_migrations, "VirtualSignals");
+  // print_prototype_ids(&map_data.map.prototype_migrations.achievement_id_migrations, "Achievement");
+  // print_prototype_ids(&map_data.map.prototype_migrations.decorative_id_migrations, "Decorative");
+  // print_prototype_ids(&map_data.map.prototype_migrations.entity_id_migrations, "Entity");
+  // print_prototype_ids(&map_data.map.prototype_migrations.equipment_id_migrations, "Equipment");
+  // print_prototype_ids(&map_data.map.prototype_migrations.fluid_id_migrations, "Fluid");
+  // print_prototype_ids(&map_data.map.prototype_migrations.item_id_migrations, "Item");
+  // print_prototype_ids(&map_data.map.prototype_migrations.item_group_id_migrations, "ItemGroup");
+  // print_prototype_ids(&map_data.map.prototype_migrations.recipe_id_migrations, "Recipe");
+  // print_prototype_ids(&map_data.map.prototype_migrations.technology_id_migrations, "Technology");
+  // print_prototype_ids(&map_data.map.prototype_migrations.tile_id_migrations, "Tile");
+  print_prototype_ids(&map_data.map.prototype_migrations.virtual_signal_id_migrations, "VirtualSignal");
 }
 
-fn print_prototype_ids<T: Copy + Display + Ord>(migrations: &ActiveMigrations<T>, name: &str) {
-  println!("");
-  println!("{}:", name);
-
+fn print_prototype_ids<T: Copy + Display + Ord>(migrations: &ActiveMigrations<T>, enum_name: &str) {
   let mut sorted_mappings = vec![];
   for (_, mappings) in &migrations.mappings {
     sorted_mappings.extend_from_slice(mappings);
   }
   sorted_mappings.sort_by_key(|(_, i)| *i);
-  for (name, id) in sorted_mappings {
+  println!("");
+  println!("pub enum {} {{", enum_name);
+  for (name, id) in sorted_mappings.iter() {
     println!("  {} = {},", heck::AsUpperCamelCase(name), id);
   }
+  println!("}}");
+  println!("impl {} {{", enum_name);
+  println!("  pub fn name(self) -> &'static str {{");
+  println!("    match self {{");
+  for (name, _) in sorted_mappings.iter() {
+    println!("      {enum_name}::{} => \"{name}\",", heck::AsUpperCamelCase(name));
+  }
+  println!("    }}");
+  println!("  }}");
+  println!("  pub fn from_name(name: &str) -> {enum_name} {{");
+  println!("    match name {{");
+  for (name, _) in sorted_mappings.iter() {
+    println!("      \"{name}\" => {enum_name}::{},", heck::AsUpperCamelCase(name));
+  }
+  println!("      name => panic!(\"unknown {enum_name} \\\"{{name}}\\\"\"),");
+  println!("    }}");
+  println!("  }}");
+  println!("}}");
 }
 
 

@@ -2,7 +2,7 @@ use std::{io::{BufRead, Seek}, ops::{Add, Neg, Sub}};
 
 use crate::{map::{MapDeserialiser, MapReadWrite, MapSerialiser}, replay::ReplayReadWrite, Result};
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct FixedPoint32_8(pub i32);
 impl FixedPoint32_8 {
   pub fn from_double(value: f64) -> Self {

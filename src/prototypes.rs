@@ -1,5 +1,6 @@
 use factorio_serialize::FixedPoint32_8;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_json::Value;
 use serde_with::skip_serializing_none;
 use std::collections::HashMap;
 
@@ -29,9 +30,9 @@ impl BoundingBox {
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Minable {
-  mining_time: f64,
-  result: Option<String>,
-  count: Option<u32>,
+  pub mining_time: f64,
+  pub result: Option<String>,
+  pub count: Option<u32>,
 }
 
 #[skip_serializing_none]
@@ -42,21 +43,100 @@ pub struct FluidBox {
 }
 
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Ingredient {
-  name: String,
-  amount: u32,
+#[derive(Serialize, Debug)]
+#[serde(tag = "type")]
+pub enum Product {
+  #[serde(rename = "item")] Item {
+    name: String,
+    amount: u32,
+  },
+  #[serde(rename = "fluid")] Fluid {
+    name: String,
+    amount: f64,
+  },
+}
+impl<'de> Deserialize<'de> for Product {
+  fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Product, D::Error> {
+    let value = Value::deserialize(deserializer)?;
+    if let Some(array) = value.as_array() {
+      Ok(Product::Item {
+        name: serde_json::from_value(array[0].clone()).unwrap(),
+        amount: serde_json::from_value(array[1].clone()).unwrap(),
+      })
+    } else if let Some(object) = value.as_object() {
+      let typ: String = object.get("type").map(|v| serde_json::from_value(v.clone()).unwrap()).unwrap_or_default();
+      match typ.as_str() {
+        "fluid" => {
+          Ok(Product::Fluid {
+            name: serde_json::from_value(object["name"].clone()).unwrap(),
+            amount: serde_json::from_value(object["amount"].clone()).unwrap(),
+          })
+        },
+        _ => {
+          Ok(Product::Item {
+            name: serde_json::from_value(object["name"].clone()).unwrap(),
+            amount: serde_json::from_value(object["amount"].clone()).unwrap(),
+          })
+        }
+      }
+    } else {
+      panic!("unknown value {}", value)
+    }
+  }
+}
+
+#[skip_serializing_none]
+#[derive(Serialize, Debug)]
+#[serde(tag = "type")]
+pub enum Ingredient {
+  #[serde(rename = "item")] Item {
+    name: String,
+    amount: u32,
+  },
+  #[serde(rename = "fluid")] Fluid {
+    name: String,
+    amount: f64,
+  },
+}
+impl<'de> Deserialize<'de> for Ingredient {
+  fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Ingredient, D::Error> {
+    let value = Value::deserialize(deserializer)?;
+    if let Some(array) = value.as_array() {
+      Ok(Ingredient::Item {
+        name: serde_json::from_value(array[0].clone()).unwrap(),
+        amount: serde_json::from_value(array[1].clone()).unwrap(),
+      })
+    } else if let Some(object) = value.as_object() {
+      let typ: String = serde_json::from_value(object["type"].clone()).unwrap();
+      match typ.as_str() {
+        "fluid" => {
+          Ok(Ingredient::Fluid {
+            name: serde_json::from_value(object["name"].clone()).unwrap(),
+            amount: serde_json::from_value(object["amount"].clone()).unwrap(),
+          })
+        },
+        _ => {
+          Ok(Ingredient::Item {
+            name: serde_json::from_value(object["name"].clone()).unwrap(),
+            amount: serde_json::from_value(object["amount"].clone()).unwrap(),
+          })
+        }
+      }
+    } else {
+      panic!("unknown value {}", value)
+    }
+  }
 }
 
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Item {
-  stack_size: u32,
-  fuel_category: Option<String>,
-  fuel_value: Option<String>,
-  fuel_acceleration_multiplier: Option<f64>,
-  fuel_top_speed_multiplier: Option<f64>,
-  place_result: Option<String>,
+  pub stack_size: u32,
+  pub fuel_category: Option<String>,
+  pub fuel_value: Option<Energy>,
+  pub fuel_acceleration_multiplier: Option<f64>,
+  pub fuel_top_speed_multiplier: Option<f64>,
+  pub place_result: Option<String>,
 }
 
 #[skip_serializing_none]
@@ -83,9 +163,9 @@ pub struct Character {
   pub collision_box: BoundingBox,
   pub selection_box: BoundingBox,
   pub inventory_size: u32,  // 80
-  pub build_distance: f64,  // 10
-  pub drop_item_distance: f64,  // 10
-  pub reach_distance: f64,  // 10,
+  pub build_distance: u32,  // 10
+  pub drop_item_distance: u32,  // 10
+  pub reach_distance: u32,  // 10,
   pub item_pickup_distance: f64,  // 1,
   pub loot_pickup_distance: f64,  // 2,
   pub enter_vehicle_distance: f64,  // 3,
@@ -95,15 +175,41 @@ pub struct Character {
   pub mining_speed: f64,  // 0.5,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(transparent)]
+pub struct Energy(String);
+impl Energy {
+  // from EnergyHelpers::fromString
+  pub fn parse(&self) -> f64 {
+    let value = self.0.as_bytes();
+    let len = value.len();
+    let unit = b"JW".into_iter().position(|&c| c == value[len - 1].to_ascii_uppercase()).expect("unknown unit") as f64 * 59.0 + 1.0;
+    (if value[len - 2].is_ascii_digit() {
+      std::str::from_utf8(&value[..len-1]).unwrap().parse::<f64>().unwrap()
+    } else {
+      std::str::from_utf8(&value[..len-2]).unwrap().parse::<f64>().unwrap() * 1000f64.powi(b"KMGTPEZY".into_iter().position(|&c| c == value[len - 2].to_ascii_uppercase()).expect("unknown modifier") as i32 + 1)
+    }) / unit
+  }
+}
+
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, Debug)]
-pub struct EnergySource {
-  r#type: String,
-  fuel_category: Option<String>,
-  usage_priority: Option<String>,
-  effectivity: Option<f64>,
-  fuel_inventory_size: Option<u32>,
-  drain: Option<String>,
+#[serde(tag = "type")]
+pub enum EnergySource {
+  #[serde(rename = "electric")] Electric {
+    usage_priority: String,
+    drain: Option<String>,
+  },
+  #[serde(rename = "burner")] Burner {
+    fuel_category: String,
+    effectivity: f64,
+    fuel_inventory_size: u32,
+  },
+  #[serde(rename = "heat")] Heat {
+    max_temperature: f64,
+    specific_heat: Energy,
+    max_transfer: String,
+  },
 }
 
 #[skip_serializing_none]
@@ -113,7 +219,7 @@ pub struct Furnace {
   collision_box: BoundingBox,
   selection_box: BoundingBox,
   result_inventory_size: u32,
-  energy_usage: String,
+  energy_usage: Energy,
   crafting_speed: f64,
   source_inventory_size: u32,
   energy_source: EnergySource,
@@ -136,7 +242,7 @@ pub struct Boiler {
   collision_box: BoundingBox,
   selection_box: BoundingBox,
   target_temperature: f64,
-  energy_consumption: String,
+  energy_consumption: Energy,
   energy_source: EnergySource,
   burning_cooldown: u32,
 }
@@ -179,8 +285,8 @@ pub struct Inserter {
   minable: Minable,
   collision_box: BoundingBox,
   selection_box: BoundingBox,
-  energy_per_movement: String,
-  energy_per_rotation: String,
+  energy_per_movement: Energy,
+  energy_per_rotation: Energy,
   energy_source: EnergySource,
   extension_speed: f64,
   rotation_speed: f64,
@@ -214,7 +320,7 @@ pub struct AssemblingMachine {
   crafting_categories: Vec<String>,
   crafting_speed: f64,
   energy_source: EnergySource,
-  energy_usage: String,
+  energy_usage: Energy,
 }
 
 #[skip_serializing_none]
@@ -224,7 +330,7 @@ pub struct Lab {
   collision_box: BoundingBox,
   selection_box: BoundingBox,
   energy_source: EnergySource,
-  energy_usage: String,
+  energy_usage: Energy,
   researching_speed: f64,
 }
 
@@ -235,8 +341,8 @@ pub struct RocketSilo {
   collision_box: BoundingBox,
   selection_box: BoundingBox,
   energy_source: EnergySource,
-  energy_usage: String,
-  active_energy_usage: String,
+  energy_usage: Energy,
+  active_energy_usage: Energy,
   rocket_parts_required: u32,
   crafting_speed: f64,
 }
@@ -259,7 +365,7 @@ pub struct Pump {
   selection_box: BoundingBox,
   fluid_box: FluidBox,
   energy_source: EnergySource,
-  energy_usage: String,
+  energy_usage: Energy,
   pumping_speed: f64,
   circuit_wire_max_distance: f64,
 }
@@ -267,26 +373,26 @@ pub struct Pump {
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, Debug)]
 pub struct MiningDrill {
-  minable: Minable,
-  collision_box: BoundingBox,
-  selection_box: BoundingBox,
-  energy_source: EnergySource,
-  energy_usage: String,
-  mining_speed: f64,
-  resource_searching_radius: f64,
-  circuit_wire_max_distance: f64,
+  pub minable: Minable,
+  pub collision_box: BoundingBox,
+  pub selection_box: BoundingBox,
+  pub energy_source: EnergySource,
+  pub energy_usage: Energy,
+  pub mining_speed: f64,
+  pub resource_searching_radius: f64,
+  pub circuit_wire_max_distance: f64,
 }
 
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Resource {
-  minable: Minable,
-  collision_box: BoundingBox,
-  selection_box: BoundingBox,
-  infinite: Option<bool>,
-  minimum: Option<u32>,
-  normal: Option<u32>,
-  infinite_depletion_amount: Option<u32>,
+  pub minable: Minable,
+  pub collision_box: BoundingBox,
+  pub selection_box: BoundingBox,
+  pub infinite: Option<bool>,
+  pub minimum: Option<u32>,
+  pub normal: Option<u32>,
+  pub infinite_depletion_amount: Option<u32>,
 }
 
 #[skip_serializing_none]
@@ -299,12 +405,33 @@ pub struct Tree {
 
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, Debug)]
+pub struct SimpleEntity {
+  pub minable: Option<Minable>,
+  pub collision_box: BoundingBox,
+  pub selection_box: BoundingBox,
+}
+
+#[skip_serializing_none]
+#[derive(Serialize, Deserialize, Debug)]
+pub struct RecipeData {
+  pub energy_required: Option<f64>,
+  pub ingredients: Vec<Ingredient>,
+  pub result: Option<String>,
+  pub result_count: Option<u32>,
+  pub results: Option<Vec<Product>>,
+}
+
+#[skip_serializing_none]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Recipe {
-  enabled: Option<bool>,
-  energy_required: Option<f64>,
-  ingredients: Option<Vec<Ingredient>>,
-  result: Option<String>,
-  result_count: Option<u32>,
+  pub category: Option<String>,
+  pub enabled: Option<bool>,
+  pub energy_required: Option<f64>,
+  pub ingredients: Option<Vec<Ingredient>>,
+  pub normal: Option<RecipeData>,
+  pub result: Option<String>,
+  pub result_count: Option<u32>,
+  pub results: Option<Vec<Product>>,
 }
 
 #[skip_serializing_none]
@@ -346,6 +473,7 @@ pub struct Prototypes {
   pub pump: HashMap<String, Pump>,
   #[serde(rename = "mining-drill")] pub mining_drill: HashMap<String, MiningDrill>,
   pub resource: HashMap<String, Resource>,
+  #[serde(rename = "simple-entity")] pub simple_entity: HashMap<String, SimpleEntity>,
   pub tree: HashMap<String, Tree>,
   pub recipe: HashMap<String, Recipe>,
   pub technology: HashMap<String, Technology>,

@@ -18,3 +18,12 @@ player movement:
 - Character::calculateShortMovement
   - if diagonal movement, No Movement
   - start with 8 units, move and return if no collision, decrement otherwise, No Movement if reaches 0
+
+hand crafting / manual mining:
+- progress is kept in double and incremented each tick, crafting/mining done when it reached crafting/mining time amount, then resets to 0
+- due to rounding errors some crafts might/mining take an additional tick (e.g 31 ticks instead of 30)
+
+Burner Miner
+- progress is added each tick proportional to mining speed and energy consumed. Once it reaches mining time, mining time is subtracted but leftover is kept
+- first mining operation takes 241 ticks due to rounding errors, all remaining ones 240
+  - technically the rounding errors keep accumulating, and after ~2 trillion iterations it will cause another 241 tick cycle

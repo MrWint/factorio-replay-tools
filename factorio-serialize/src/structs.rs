@@ -7,6 +7,8 @@ mod fixedpointnumber;
 pub use fixedpointnumber::FixedPoint32_8;
 mod mapposition;
 pub use mapposition::MapPosition;
+mod randomgenerator;
+pub use randomgenerator::RandomGenerator;
 mod vector;
 pub use vector::Vector;
 mod vectororientation;
@@ -24,10 +26,10 @@ pub struct TilePosition {
   pub y: i32,
 }
 impl TilePosition {
-  pub fn new(x: i32, y: i32) -> Self {
+  pub const fn new(x: i32, y: i32) -> Self {
     Self { x, y }
   }
-  pub fn center_map_position(&self) -> MapPosition {
+  pub const fn center_map_position(&self) -> MapPosition {
     MapPosition::new( FixedPoint32_8(self.x * 0x100 + 0x80), FixedPoint32_8(self.y * 0x100 + 0x80))
   }
   pub fn top_left_map_position(&self) -> MapPosition {

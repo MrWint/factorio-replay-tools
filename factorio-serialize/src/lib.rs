@@ -11,6 +11,7 @@ mod structs;
 pub use structs::BoundingBox;
 pub use structs::ChunkPosition;
 pub use structs::MapPosition;
+pub use structs::RandomGenerator;
 pub use structs::TilePosition;
 pub use structs::FixedPoint32_8;
 pub use structs::Vector;

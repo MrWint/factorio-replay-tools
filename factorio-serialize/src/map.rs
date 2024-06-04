@@ -17,6 +17,7 @@ use crate::structs::BoundingBox;
 use crate::structs::Vector;
 use crate::ChunkPosition;
 use crate::MapPosition;
+use crate::RandomGenerator;
 use crate::Reader;
 use crate::Result;
 use crate::Writer;
@@ -418,11 +419,11 @@ pub struct Map {
   pub map_header: MapHeader,
   pub map_gen_settings: MapGenSettings,
   map_settings: MapSettings,
-  general_random_generator: RandomGenerator,
-  ai_random_generator: RandomGenerator,
-  entities_random_generator: RandomGenerator,
-  map_random_generator: RandomGenerator,
-  triggers_random_generator: RandomGenerator,
+  pub general_random_generator: RandomGenerator,
+  pub ai_random_generator: RandomGenerator,
+  pub entities_random_generator: RandomGenerator,
+  pub map_random_generator: RandomGenerator,
+  pub triggers_random_generator: RandomGenerator,
   entity_update_paused_state: EntityUpdatePausedState,
   pub prototype_migrations: PrototypeMigrationList,
 
@@ -822,13 +823,6 @@ pub enum ResearchQueueSetting {
   Always = 0,
   AfterVictory = 1,
   Never = 2,
-}
-
-#[derive(Debug, MapReadWriteStruct)]
-pub struct RandomGenerator {
-  seed1: u32,
-  seed2: u32,
-  seed3: u32,
 }
 
 #[derive(Debug, MapReadWriteStruct)]
@@ -1677,7 +1671,7 @@ impl Chunk {
     let active_when_enemy_is_around = u32::map_read(input)?; assert_eq!(active_when_enemy_is_around, 0);
 
     Ok(Chunk { position, generated_status, military_targets_len, active_entities_serialisation_helper, planned_update_counts_to_be_loaded,
-      active_when_enemy_is_around, tiles: Default::default(), entities_to_be_inserted_before_setup: vec![], tick_of_optional_activation: 0, tick_of_last_change_that_could_affect_charting: 0, pollution: 0.0 })
+      active_when_enemy_is_around, tiles: [[(Tile::LabWhite, 0x10); 32]; 32], entities_to_be_inserted_before_setup: vec![], tick_of_optional_activation: 0, tick_of_last_change_that_could_affect_charting: 0, pollution: 0.0 })
   }
   fn initial_write(&self, input: &mut MapSerialiser) -> Result<()> {
     self.position.map_write(input)?;
@@ -1740,7 +1734,7 @@ impl Chunk {
 #[derive(Clone, Debug, MapReadWriteTaggedUnion)]
 #[tag_type(Entity)]
 pub enum EntityData {
-  Nothing,
+  // Nothing,
   Coal(ResourceEntity),
   CopperOre(ResourceEntity),
   IronOre(ResourceEntity),
@@ -1776,14 +1770,14 @@ pub struct EntityWithHealth {
   pub entity: EntityCommon,
   pub health: f32,
   pub damage_to_be_taken: f32,
-  pub upgrade_target: Entity,
+  pub upgrade_target: Option<Entity>,
 }
 impl MapReadWrite for EntityWithHealth {
   fn map_read<R: BufRead + Seek>(input: &mut MapDeserialiser<R>) -> Result<Self> {
     let entity = EntityCommon::map_read(input)?;
     let health = if entity.usage_bit_mask & 0x2000 != 0 { f32::map_read(input)? } else { 0.0 };
     let damage_to_be_taken = if entity.usage_bit_mask & 0x2000 != 0 { f32::map_read(input)? } else { 0.0 };
-    let upgrade_target = if entity.usage_bit_mask & 0x1 != 0 { Entity::map_read(input)? } else { Entity::Nothing };
+    let upgrade_target = if entity.usage_bit_mask & 0x1 != 0 { Some(Entity::map_read(input)?) } else { None };
 
     Ok(EntityWithHealth { entity, health, damage_to_be_taken, upgrade_target })
   }
@@ -1791,7 +1785,7 @@ impl MapReadWrite for EntityWithHealth {
     self.entity.map_write(input)?;
     if self.entity.usage_bit_mask & 0x2000 != 0 { self.health.map_write(input)?; }
     if self.entity.usage_bit_mask & 0x2000 != 0 { self.damage_to_be_taken.map_write(input)?; }
-    if self.entity.usage_bit_mask & 0x1 != 0 { self.upgrade_target.map_write(input)?; }
+    if self.entity.usage_bit_mask & 0x1 != 0 { self.upgrade_target.unwrap().map_write(input)?; }
 
     Ok(())
   }

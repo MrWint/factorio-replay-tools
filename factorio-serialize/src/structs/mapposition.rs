@@ -2,7 +2,7 @@ use std::{io::{BufRead, Seek}, ops::{Add, Sub}};
 
 use crate::{map::{MapDeserialiser, MapReadWrite, MapSerialiser}, replay::ReplayReadWrite, ChunkPosition, FixedPoint32_8, Result, TilePosition, Vector};
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash)]
 pub struct MapPosition {
   pub x: FixedPoint32_8,
   pub y: FixedPoint32_8,
@@ -11,7 +11,7 @@ pub struct MapPosition {
 }
 
 impl MapPosition {
-  pub fn new(x: FixedPoint32_8, y: FixedPoint32_8) -> Self {
+  pub const fn new(x: FixedPoint32_8, y: FixedPoint32_8) -> Self {
     Self { x, y, deserialized_relative: false }
   }
   pub fn to_tile_position(&self) -> TilePosition {

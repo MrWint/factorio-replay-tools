@@ -1,6 +1,8 @@
+mod gameconfig;
 mod hexfloat;
 mod runner;
 mod prototypes;
+mod random;
 mod simulation;
 mod singleplayerrunner;
 mod util;
@@ -13,22 +15,22 @@ use factorio_serialize::replay::ReplayData;
 use factorio_serialize::TilePosition;
 use runner::Runner;
 use crate::singleplayerrunner::*;
-use crate::hexfloat::HexFloat;
 
 fn main() {
   // assemble_test_tas();
   // assemble_automation_tas();
   // test_float();
+  // test_rng();
 
-  // crate::util::load_and_save_map_test("11107scenarioreplay", "test");
+  // crate::util::load_and_verify_map_test("11107scenarioreplay");
   // crate::util::load_and_save_replay_test("11107scenarioreplay");
   // crate::util::load_and_save_script_test("11107scenarioreplay");
   // crate::util::export_prototypes("11107scenarioreplay");
   // crate::util::clean_up_save_file("11107scenarioreplay", "11107template");
-  // crate::util::load_and_save_map_test("11107template", "test");
-  // crate::prototypes::parse_prototype_data();
+  // crate::util::load_and_verify_map_test("test2");
+  // crate::prototypes::create_minimized_prototypes();
   // create_player_movement_test_replay("11107template", "test");
-  // create_test_replay();
+  create_test_replay();
 }
 
 // Double a: 0.00416666666666666574148081281236954964697360992431640625   // 4803839602528528 / 2^60
@@ -40,21 +42,42 @@ fn main() {
 
 #[allow(dead_code)]
 fn test_float() {
-  // println!("{:.30}", (1.0_f64 / 4.0) / 60.0);
-  // println!("{:.30}", (1.0_f64 / 60.0) / 4.0);
-  // println!("{:.30}", 0.00416666666666666607454772019992_f64);
-  // let mut a = 0_f64;
-  // for _ in 0..240 {
-  //   a += 0.00416666666666666661;
-  //   // a += 0.0041666666666666661;
-  //   println!("{:.20}", HexFloat(a));
+  println!("{:x}", (16.0f64/15.0).to_bits());
+  // let increment = 0.25 * (1.0 / 60.0);
+  // let mut val = 0.0f64;
+  // // let mut value_map = HashSet::new();
+  // let mut count = 0_u64;
+  // let mut rollovers = 0_u64;
+  // loop {
+  // // while !value_map.contains(&val.to_bits()) {
+  //   // value_map.insert(val.to_bits());
+  //   val += increment;
+  //   count += 1;
+  //   if val >= 1.0 {
+  //     rollovers += 1;
+  //     val -= 1.0;
+  //     if rollovers % 1_000_000_000 == 0 {
+  //       println!("{count} val {:x}", val.to_bits());
+  //     }
+  //     if count % 240 != 1 {
+  //       println!("output at {count} val {:x}", val.to_bits());
+  //       return;
+  //     }
+  //   }
   // }
-  println!("{}", HexFloat((2500.0 * 16.0) / 15.0));
-  println!("{}", HexFloat((2500.0 / 15.0) * 16.0));
-  println!("{}", HexFloat(2500.0 * (16.0 / 15.0)));
-  let f = 16.0 / 15.0;
-  println!("{}", HexFloat(f));
-  println!("{}", HexFloat(1500.0 * f));
+  // println!("found loop with value {val} at {count}")
+}
+
+#[allow(dead_code)]
+fn test_rng() {
+  // let mut rng = RandomGenerator::new(341, 341, 341);
+  // // let mut rng = RandomGenerator::new(1446487723, 319594154, 3693144403);
+  // for _ in 0..100 {
+  //   println!("{}", (rng.uniform_double() * (51.0-24.0) + 24.0) as u32);
+  // }
+  random::brute_force_rock_rng();
+  // random::check_rng_cycles();
+  // println!("{:b}", random::next_perm(0b_11110));
 }
 
 #[allow(dead_code)]
@@ -102,39 +125,19 @@ fn create_player_movement_test_replay(template_name: &str, out_name: &str) {
 fn create_test_replay() {
   let mut runner = Runner::new();
 
-  runner.make_water_tile(TilePosition::new(-3, -1));
-  runner.make_water_tile(TilePosition::new(-3, 0));
-  runner.make_water_tile(TilePosition::new(-3, 1));
-  runner.make_water_tile(TilePosition::new(-4, -1));
-  runner.make_water_tile(TilePosition::new(-4, 0));
-  runner.make_water_tile(TilePosition::new(-4, 1));
-  runner.make_water_tile(TilePosition::new(1, -1));
-  runner.make_water_tile(TilePosition::new(1, -0));
-  runner.make_water_tile(TilePosition::new(1, 1));
-  runner.make_water_tile(TilePosition::new(1, 2));
-  runner.make_water_tile(TilePosition::new(1, 3));
-  runner.make_water_tile(TilePosition::new(2, -1));
-  runner.make_water_tile(TilePosition::new(2, 0));
-  runner.make_water_tile(TilePosition::new(2, 1));
-  runner.make_water_tile(TilePosition::new(2, 2));
-  runner.make_water_tile(TilePosition::new(2, 3));
+  runner.build_iron_miner(TilePosition::new(2, 2), Direction::East);
+  runner.build_stone_furnace(TilePosition::new(4, 2));
+  runner.add_fuel_to_iron_miner(Item::Wood, 1, TilePosition::new(2, 2));
 
-  runner.make_water_tile(TilePosition::new(1, -5));
-  runner.make_water_tile(TilePosition::new(1, -4));
-  runner.make_water_tile(TilePosition::new(0, -4));
-  runner.make_water_tile(TilePosition::new(0, -3));
+  runner.mine_rock();
+  runner.add_fuel_to_iron_miner(Item::Coal, 1, TilePosition::new(2, 2));
 
-  runner.add_tree(MapPosition::new(FixedPoint32_8(256), FixedPoint32_8(-1024)));
-
-  runner.walk_for(Direction::West, 30);
-  runner.walk_for(Direction::South, 25);
-  runner.walk_for(Direction::NorthEast, 25);
-  runner.walk_for(Direction::East, 40);
-  runner.walk_for(Direction::North, 50);
-  runner.walk_for(Direction::East, 12);
-  runner.walk_for(Direction::SouthWest, 15);
-  runner.walk_for(Direction::North, 11);
-  runner.walk_for(Direction::West, 8);
+  for _ in 0..10 {
+    runner.mine_rock();
+  }
+  // runner.mine_tree();
+  // runner.mine_iron_ore(2);
+  // runner.mine_copper_ore(2);
 
   runner.write_save_file("11107template", "test").unwrap();
 }
