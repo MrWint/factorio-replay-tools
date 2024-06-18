@@ -79,6 +79,24 @@ function assert_miner_heat(x, y, expected_heat)
     log_print(string.format("tick %d: expected miner at (%d, %d) heat %a, but found %a", game.tick, x, y, expected_heat, miner.burner.heat))
   end
 end
+function assert_furnace_crafting_progress(x, y, expected_progress)
+  local furnace = game.surfaces[1].find_entity("stone-furnace", {x, y})
+  if furnace.crafting_progress ~= expected_progress then
+    log_print(string.format("tick %d: expected furnace at (%d, %d) crafting progress %a, but found %a", game.tick, x, y, expected_progress, furnace.crafting_progress))
+  end
+end
+function assert_furnace_remaining_burning_fuel(x, y, expected_remaining_fuel)
+  local furnace = game.surfaces[1].find_entity("stone-furnace", {x, y})
+  if furnace.burner.remaining_burning_fuel ~= expected_remaining_fuel then
+    log_print(string.format("tick %d: expected furnace at (%d, %d) remaining fuel %a, but found %a", game.tick, x, y, expected_remaining_fuel, furnace.burner.remaining_burning_fuel))
+  end
+end
+function assert_furnace_heat(x, y, expected_heat)
+  local furnace = game.surfaces[1].find_entity("stone-furnace", {x, y})
+  if furnace.burner.heat ~= expected_heat then
+    log_print(string.format("tick %d: expected furnace at (%d, %d) heat %a, but found %a", game.tick, x, y, expected_heat, furnace.burner.heat))
+  end
+end
 function log_print(message)
   log(message)
   game.print(message)

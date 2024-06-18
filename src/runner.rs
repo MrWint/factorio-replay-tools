@@ -92,6 +92,14 @@ impl Runner {
     self.game_state.build_stone_furnace(position);
   }
   #[allow(dead_code)]
+  pub fn add_fuel_to_stone_furnace(&mut self, item: Item, amount: u32, position: TilePosition) {
+    self.game_state.add_fuel_to_stone_furnace(item, amount, position);
+  }
+  #[allow(dead_code)]
+  pub fn add_input_to_stone_furnace(&mut self, item: Item, amount: u32, position: TilePosition) {
+    self.game_state.add_input_to_stone_furnace(item, amount, position);
+  }
+  #[allow(dead_code)]
   pub fn build_iron_miner(&mut self, position: TilePosition, direction: Direction) {
     self.game_state.build_iron_miner(position, direction);
   }

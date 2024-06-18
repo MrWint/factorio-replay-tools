@@ -27,3 +27,19 @@ Burner Miner
 - progress is added each tick proportional to mining speed and energy consumed. Once it reaches mining time, mining time is subtracted but leftover is kept
 - first mining operation takes 241 ticks due to rounding errors, all remaining ones 240
   - technically the rounding errors keep accumulating, and after ~2 trillion iterations it will cause another 241 tick cycle
+
+
+Entity update order (from Surface::update)
+- Inserter
+- AssemblingMachine
+- Furnace
+- MiningDrill
+- Character
+- Boiler
+- Generator
+- Lab
+- ElectricEnergyInterface
+- OffshorePump
+- Pump
+- RocketSilo
+- RocketSiloRocket

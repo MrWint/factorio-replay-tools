@@ -101,6 +101,8 @@ pub struct GameConfig {
 
   pub burner_miner_energy_usage: f64,
   pub burner_miner_speed: f64,
+  pub stone_furnace_energy_usage: f64,
+  pub stone_furnace_speed: f64,
 
   pub fuels: HashMap<Item, FuelConfig>,
   pub items: HashMap<Item, ItemConfig>,
@@ -128,6 +130,8 @@ impl GameConfig {
 
       burner_miner_energy_usage: prototypes.mining_drill["burner-mining-drill"].energy_usage.parse(),
       burner_miner_speed: prototypes.mining_drill["burner-mining-drill"].mining_speed,
+      stone_furnace_energy_usage: prototypes.furnace["stone-furnace"].energy_usage.parse(),
+      stone_furnace_speed: prototypes.furnace["stone-furnace"].crafting_speed,
 
       fuels: prototypes.item.iter().filter_map(|(name, item)| Some((Item::from_name(name), FuelConfig::from_prototype(item)?))).collect(),
       items: prototypes.item.iter().map(|(name, item)| (Item::from_name(name), ItemConfig::from_prototype(item))).collect(),

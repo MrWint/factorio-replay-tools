@@ -215,14 +215,14 @@ pub enum EnergySource {
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Furnace {
-  minable: Minable,
-  collision_box: BoundingBox,
-  selection_box: BoundingBox,
-  result_inventory_size: u32,
-  energy_usage: Energy,
-  crafting_speed: f64,
-  source_inventory_size: u32,
-  energy_source: EnergySource,
+  pub minable: Minable,
+  pub collision_box: BoundingBox,
+  pub selection_box: BoundingBox,
+  pub result_inventory_size: u32,
+  pub energy_usage: Energy,
+  pub crafting_speed: f64,
+  pub source_inventory_size: u32,
+  pub energy_source: EnergySource,
 }
 
 #[skip_serializing_none]

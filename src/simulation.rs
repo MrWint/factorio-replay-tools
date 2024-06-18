@@ -97,6 +97,117 @@ impl BurnerMiner {
     false
   }
 }
+pub struct StoneFurnace {
+  energy_source: Burner,
+  energy_stored_in_product: f64,
+  extra_energy_for_product: f64,
+  recipe: Option<Recipe>,
+  input_slot: Option<(Item, u32)>,
+  output_slot: Option<(Item, u32)>,
+}
+impl StoneFurnace {
+  fn new() -> Self {
+    StoneFurnace {
+      energy_source: Burner::with_buffer_size(GAME_CONFIG.stone_furnace_energy_usage * (16.0 / 15.0)), // from MiningDrill::onEffectChanged
+      energy_stored_in_product: 0.0,
+      extra_energy_for_product: 0.0,
+      recipe: None,
+      input_slot: None,
+      output_slot: None,
+    }
+  }
+  // from CraftingMachine::extractEnergyAndPollute
+  fn extract_energy(&mut self) -> f64 {
+    let energy_consumed = self.energy_source.extract_energy(GAME_CONFIG.stone_furnace_energy_usage);
+    let effective_crafting_speed = energy_consumed / GAME_CONFIG.stone_furnace_energy_usage * GAME_CONFIG.stone_furnace_speed;
+    if effective_crafting_speed > 0.0 {
+      self.energy_stored_in_product += effective_crafting_speed / 60.0;
+    }
+    effective_crafting_speed
+  }
+  // from CraftingMachine::update / CraftingMachine::useRecipeOnSource
+  pub fn tick(&mut self) {
+    if self.energy_stored_in_product > 0.0 {
+      let recipe = self.recipe.expect("progress but no recipe selected");
+      let recipe_energy_required = GAME_CONFIG.recipes[&recipe].energy_required;
+      if self.energy_stored_in_product >= recipe_energy_required {
+        self.extra_energy_for_product = 0f64.max(self.energy_stored_in_product - recipe_energy_required);
+        self.energy_stored_in_product = 0.0;
+        // output products
+        assert!(GAME_CONFIG.recipes[&recipe].results.len() == 1, "Stone Furnace Recipe {recipe:?} does not have exactly one product: {:?}", GAME_CONFIG.recipes[&recipe].results);
+        if let &ProductConfig::Item { id: output_item, amount: output_amount } = &GAME_CONFIG.recipes[&recipe].results[0] {
+          if let Some((item, amount)) = &mut self.output_slot {
+            assert!(*item == output_item, "Stone Furnace can't hold {output_item:?} while already storing {item:?}");
+            *amount += output_amount;
+          } else {
+            self.output_slot = Some((output_item, output_amount))
+          }
+        } else {
+          panic!("Stone Furnace Recipe {recipe:?} has fluid output {:?}", GAME_CONFIG.recipes[&recipe].results[0])
+        }
+      }
+    }
+    let new_craft = self.energy_stored_in_product == 0.0;
+    if new_craft {
+      // change recipe
+      if let Some((item, amount)) = self.input_slot {
+        self.recipe = Some(match item {
+          Item::IronOre => Recipe::IronPlate,
+          Item::CopperOre => Recipe::CopperPlate,
+          Item::Stone => Recipe::StoneBrick,
+          Item::IronPlate => Recipe::SteelPlate,
+          _ => panic!("unknown Furnace input item {item:?}"),
+        });
+        let (input_item, input_amount) = self.get_recipe_inputs();
+        assert!(item == input_item, "recipe item {input_item:?} does not match {item:?}");
+        if amount < input_amount {
+          // Not enough inputs
+          self.recipe = None;
+          return;
+        }
+      } else {
+        // No input, no recipe
+        self.recipe = None;
+        return;
+      }
+    }
+    if self.extract_energy() > 0.0 {
+      if new_craft {
+        // take ingredients
+        let (item, amount) = self.input_slot.expect("Starting new recipe without input items");
+        let (input_item, input_amount) = self.get_recipe_inputs();
+        assert!(item == input_item, "recipe item {input_item:?} does not match {item:?}");
+        assert!(amount >= input_amount, "Starting new recipe with insufficient input items");
+        if amount > input_amount {
+          self.input_slot = Some((item, amount - input_amount));
+        } else {
+          self.input_slot = None;
+        }
+
+        // add extra energy left over from last craft
+        self.energy_stored_in_product += self.extra_energy_for_product;
+        self.extra_energy_for_product = 0.0;
+      }
+    }
+    self.energy_source.tick()
+  }
+
+  fn get_recipe_inputs(&self) -> (Item, u32) {
+    let recipe = self.recipe.expect("no recipe set");
+    assert!(GAME_CONFIG.recipes[&recipe].ingredients.len() == 1, "Stone Furnace Recipe {recipe:?} does not have exactly one ingredient: {:?}", GAME_CONFIG.recipes[&recipe].ingredients);
+    if let &ProductConfig::Item { id, amount } = &GAME_CONFIG.recipes[&recipe].ingredients[0] {
+      (id, amount)
+    } else {
+      panic!("Stone Furnace Recipe {recipe:?} has fluid input {:?}", GAME_CONFIG.recipes[&recipe].ingredients[0])
+    }
+  }
+  // From CraftingMachine::getActivityProgress
+  fn get_crafting_progress(&self) -> f64 {
+    if let Some(recipe) = self.recipe {
+      1f64.min(self.energy_stored_in_product / GAME_CONFIG.recipes[&recipe].energy_required)
+    } else { 0.0 }
+  }
+}
 #[derive(Debug)]
 enum PlayerSelectedEntity {
   DryTree(usize),
@@ -122,6 +233,7 @@ pub struct GameState {
   pub iron_ores: HashMap<TilePosition, u32>,
   pub copper_ores: HashMap<TilePosition, u32>,
   pub iron_miners: HashMap<TilePosition, BurnerMiner>,
+  pub stone_furnaces: HashMap<TilePosition, StoneFurnace>,
 
   instrumented: bool,
   pub input_actions: Vec<InputAction>,
@@ -145,6 +257,7 @@ impl GameState {
       iron_ores: HashMap::new(),
       copper_ores: HashMap::new(),
       iron_miners: HashMap::new(),
+      stone_furnaces: HashMap::new(),
 
       instrumented: false,
       input_actions: Vec::new()
@@ -252,6 +365,7 @@ impl GameState {
     self.player_inventory.iter().map(|(item, count)| count.div_ceil(GAME_CONFIG.items[item].stack_size)).sum()
   }
   pub fn build_stone_furnace(&mut self, position: TilePosition) {
+    self.stone_furnaces.insert(position, StoneFurnace::new());
     self.build(Item::StoneFurnace, position.top_left_map_position(), Direction::North);
   }
   pub fn build_iron_miner(&mut self, position: TilePosition, direction: Direction) {
@@ -273,6 +387,24 @@ impl GameState {
       *a += amount;
     } else {
       self.iron_miners.get_mut(&position).unwrap().energy_source.fuel_slot = Some((item, amount));
+    }
+  }
+  pub fn add_fuel_to_stone_furnace(&mut self, item: Item, amount: u32, position: TilePosition) {
+    self.drop_item_at(item, amount, position.top_left_map_position());
+    if let Some((i, a)) = &mut self.stone_furnaces.get_mut(&position).unwrap_or_else(|| panic!("furnace at position {position:?} not found")).energy_source.fuel_slot {
+      assert!(*i == item, "furnace at {position:?} already has incompatible fuel {i:?}, can't add {item:?}");
+      *a += amount;
+    } else {
+      self.stone_furnaces.get_mut(&position).unwrap().energy_source.fuel_slot = Some((item, amount));
+    }
+  }
+  pub fn add_input_to_stone_furnace(&mut self, item: Item, amount: u32, position: TilePosition) {
+    self.drop_item_at(item, amount, position.top_left_map_position());
+    if let Some((i, a)) = &mut self.stone_furnaces.get_mut(&position).unwrap_or_else(|| panic!("furnace at position {position:?} not found")).input_slot {
+      assert!(*i == item, "furnace at {position:?} already has incompatible input {i:?}, can't add {item:?}");
+      *a += amount;
+    } else {
+      self.stone_furnaces.get_mut(&position).unwrap().input_slot = Some((item, amount));
     }
   }
   pub fn drop_item_at(&mut self, item: Item, amount: u32, position: MapPosition) {
@@ -353,6 +485,10 @@ impl GameState {
       }
     }
 
+    // Furnace update
+    for (_, furnace) in self.stone_furnaces.iter_mut() {
+      furnace.tick();
+    }
     // Miner update
     for (_, miner) in self.iron_miners.iter_mut() {
       miner.tick();
@@ -565,6 +701,11 @@ impl GameState {
       self.input_actions.push(self.build_command(format!(r#"assert_miner_mining_progress({}, {}, {})"#, position.x, position.y, HexFloat(miner.mining_progress))));
       self.input_actions.push(self.build_command(format!(r#"assert_miner_remaining_burning_fuel({}, {}, {})"#, position.x, position.y, HexFloat(miner.energy_source.remaining_part_of_burning_fuel))));
       self.input_actions.push(self.build_command(format!(r#"assert_miner_heat({}, {}, {})"#, position.x, position.y, HexFloat(miner.energy_source.heat_energy))));
+    }
+    for (position, furnace) in self.stone_furnaces.iter() {
+      self.input_actions.push(self.build_command(format!(r#"assert_furnace_crafting_progress({}, {}, {})"#, position.x, position.y, HexFloat(furnace.get_crafting_progress()))));
+      self.input_actions.push(self.build_command(format!(r#"assert_furnace_remaining_burning_fuel({}, {}, {})"#, position.x, position.y, HexFloat(furnace.energy_source.remaining_part_of_burning_fuel))));
+      self.input_actions.push(self.build_command(format!(r#"assert_furnace_heat({}, {}, {})"#, position.x, position.y, HexFloat(furnace.energy_source.heat_energy))));
     }
   }
 

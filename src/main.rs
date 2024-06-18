@@ -125,12 +125,17 @@ fn create_player_movement_test_replay(template_name: &str, out_name: &str) {
 fn create_test_replay() {
   let mut runner = Runner::new();
 
-  runner.build_iron_miner(TilePosition::new(2, 2), Direction::East);
-  runner.build_stone_furnace(TilePosition::new(4, 2));
-  runner.add_fuel_to_iron_miner(Item::Wood, 1, TilePosition::new(2, 2));
-
+  runner.build_stone_furnace(TilePosition::new(2, 2));
+  runner.add_fuel_to_stone_furnace(Item::Wood, 1, TilePosition::new(2, 2));
   runner.mine_rock();
-  runner.add_fuel_to_iron_miner(Item::Coal, 1, TilePosition::new(2, 2));
+  runner.add_input_to_stone_furnace(Item::Stone, 1, TilePosition::new(2, 2));
+  runner.mine_tree();
+  runner.add_input_to_stone_furnace(Item::Stone, 49, TilePosition::new(2, 2));
+  runner.mine_rock();
+  runner.mine_rock();
+  runner.mine_rock();
+  runner.mine_rock();
+  runner.add_fuel_to_stone_furnace(Item::Wood, 4, TilePosition::new(2, 2));
 
   for _ in 0..10 {
     runner.mine_rock();
